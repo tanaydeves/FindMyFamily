@@ -429,13 +429,13 @@ export const MapScreen: React.FC<Props> = ({
               <ExternalLink className="w-3.5 h-3.5 opacity-80" />
             </button>
 
-            {/* In-App AirTag 360 Arrow Direction Lock */}
+            {/* In-App Direction Radar Compass Lock */}
             <button
               onClick={() => onNavigateToArrow(selectedMember)}
               className="py-3 px-4 rounded-xl bg-[#DCFCE7] hover:bg-[#BBF7D0] border border-[#86EFAC] active:scale-[0.98] text-[#166534] label-md font-bold shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
               <Compass className="w-4 h-4 text-[#166534]" />
-              <span>AirTag Arrow</span>
+              <span>Direction Radar</span>
               <ChevronRight className="w-4 h-4 text-[#166534]" />
             </button>
           </div>
