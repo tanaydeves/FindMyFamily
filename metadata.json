@@ -1,0 +1,6 @@
+{
+  "name": "Find My Family",
+  "description": "Crowd-proof family direction finder with live compass bearing, distance calculation, offline SMS relay fallback, and SOS distress alerts.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
