@@ -8,6 +8,7 @@ import { BottomNavBar, TabType } from './components/BottomNavBar';
 import { HomeScreen } from './components/HomeScreen';
 import { ArrowScreen } from './components/ArrowScreen';
 import { RadarScreen } from './components/RadarScreen';
+import { MapScreen } from './components/MapScreen';
 import { SettingsHubScreen } from './components/SettingsHubScreen';
 import { AddMemberSheet } from './components/AddMemberSheet';
 import { InviteCircleScreen } from './components/InviteCircleScreen';
@@ -19,6 +20,7 @@ import { HelpSafetyModal } from './components/HelpSafetyModal';
 import { SmsHubModal } from './components/SmsHubModal';
 import { FamilyMember, LanguageCode, DistressAlert, LocationData } from './types';
 import { relayClient } from './services/relayClient';
+import { batteryService } from './services/batteryService';
 import { audioHaptics } from './services/audioHaptics';
 import { ParsedSms, SmsService } from './services/smsService';
 import { Compass, Users } from 'lucide-react';
@@ -101,6 +103,7 @@ export default function App() {
   const [myLocation, setMyLocation] = useState({ latitude: DEFAULT_LAT, longitude: DEFAULT_LNG });
   const [useRealGps, setUseRealGps] = useState<boolean>(true);
   const [compassHeading, setCompassHeading] = useState<number>(0);
+  const [myBattery, setMyBattery] = useState<number>(() => batteryService.getBatteryStatus().level);
   const [pairedMembers, setPairedMembers] = useState<FamilyMember[]>(() => {
     try {
       const saved = localStorage.getItem('fmf_paired_members');
@@ -115,6 +118,14 @@ export default function App() {
   const [incomingDistress, setIncomingDistress] = useState<DistressAlert | null>(null);
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const [isServerConnected, setIsServerConnected] = useState<boolean>(() => relayClient.isConnected());
+
+  // Listen to live device battery changes
+  useEffect(() => {
+    const unsub = batteryService.subscribe((status) => {
+      setMyBattery(status.level);
+    });
+    return unsub;
+  }, []);
 
   // Language & URL params on boot
   useEffect(() => {
@@ -385,7 +396,7 @@ export default function App() {
         3.0,
         myDeviceName,
         compassHeading,
-        96,
+        myBattery,
         myColor
       );
 
@@ -427,7 +438,7 @@ export default function App() {
       localStorage.setItem('fmf_my_phone', phone);
       localStorage.setItem('fmf_my_color', color);
     } catch {}
-    relayClient.pushLocation(myLocation.latitude, myLocation.longitude, 3.0, name, compassHeading, 96, color);
+    relayClient.pushLocation(myLocation.latitude, myLocation.longitude, 3.0, name, compassHeading, myBattery, color);
   };
 
   const handleChangeCircle = (newCircleId: string) => {
@@ -550,6 +561,7 @@ export default function App() {
   // Determine Screen Title for Top Bar
   const getScreenTitle = () => {
     if (showRadar) return 'Perimeter Radar';
+    if (currentTab === 'map') return 'Real-Time Map';
     if (currentTab === 'track') {
       return selectedMember ? `Tracking ${selectedMember.name}` : 'Direction Finder';
     }
@@ -656,12 +668,32 @@ export default function App() {
                   setSelectedMember(member);
                   setCurrentTab('track');
                 }}
+                onOpenMap={(member) => {
+                  if (member) setSelectedMember(member);
+                  setCurrentTab('map');
+                }}
                 onOpenAddMember={() => setAddMemberOpen(true)}
                 onRemoveMember={handleRemoveMember}
                 onDismissDistress={() => {
                   audioHaptics.stopDistressSiren();
                   setIncomingDistress(null);
                 }}
+              />
+            ) : currentTab === 'map' ? (
+              <MapScreen
+                myLocation={myLocation}
+                myDeviceName={myDeviceName}
+                myColor={myColor}
+                myBattery={myBattery}
+                pairedMembers={pairedMembers}
+                selectedMember={selectedMember}
+                onSelectMember={(member) => setSelectedMember(member)}
+                onNavigateToArrow={(member) => {
+                  setSelectedMember(member);
+                  setCurrentTab('track');
+                }}
+                onBack={() => setCurrentTab('family')}
+                lang={lang}
               />
             ) : currentTab === 'track' ? (
               selectedMember ? (

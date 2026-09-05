@@ -10,6 +10,9 @@ import {
   MessageSquare,
   Footprints,
   RotateCw,
+  Navigation,
+  Battery,
+  MapPin,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { FamilyMember, LanguageCode } from '../types';
@@ -129,13 +132,25 @@ export const ArrowScreen: React.FC<Props> = ({
             </h2>
             <div className="label-sm text-[#006D36] font-medium flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#4ADE80] shrink-0" />
-              <span>Live Direction Lock</span>
+              <span>Live Lock</span>
+              <span className="text-[#CBD5E1]">•</span>
+              <span className="font-mono text-[#166534] font-bold">🔋 {member.battery ?? 90}%</span>
             </div>
           </div>
         </div>
 
-        {/* Audio & Voice Tools */}
+        {/* Audio & Voice & External Nav Tools */}
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              const url = `https://www.google.com/maps/dir/?api=1&destination=${member.lastLat},${member.lastLng}&travelmode=walking`;
+              window.open(url, '_blank');
+            }}
+            className="w-10 h-10 rounded-xl bg-[#1B4332] text-white flex items-center justify-center transition-all cursor-pointer shadow-xs hover:bg-[#012D1D]"
+            title="Open in Google Maps"
+          >
+            <Navigation className="w-5 h-5 text-[#4ADE80]" />
+          </button>
           <button
             onClick={handleTriggerVoice}
             className="w-10 h-10 rounded-xl bg-white border border-[#E2E8F0] hover:bg-[#F8FAF9] text-[#1B4332] flex items-center justify-center transition-all cursor-pointer shadow-xs"

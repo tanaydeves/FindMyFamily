@@ -10,6 +10,10 @@ import {
   WifiOff,
   Navigation,
   Trash2,
+  Battery,
+  BatteryMedium,
+  BatteryLow,
+  MapPin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FamilyMember, DistressAlert } from '../types';
@@ -21,6 +25,7 @@ interface Props {
   incomingDistress: DistressAlert | null;
   isOffline: boolean;
   onSelectMember: (member: FamilyMember) => void;
+  onOpenMap?: (member?: FamilyMember) => void;
   onOpenAddMember: () => void;
   onRemoveMember?: (memberId: string) => void;
   onDismissDistress: () => void;
@@ -32,6 +37,7 @@ export const HomeScreen: React.FC<Props> = ({
   incomingDistress,
   isOffline,
   onSelectMember,
+  onOpenMap,
   onOpenAddMember,
   onRemoveMember,
   onDismissDistress,
@@ -210,21 +216,51 @@ export const HomeScreen: React.FC<Props> = ({
                         )}
 
                         <span className="text-[#CBD5E1]">•</span>
-                        <span className="label-sm text-[#5C7168]">
-                          {Math.round((Date.now() - member.lastUpdated) / 1000)}s ago
+                        <span className="label-sm text-[#5C7168] flex items-center gap-1 font-mono font-bold">
+                          {(member.battery ?? 90) <= 20 ? (
+                            <BatteryLow className="w-3.5 h-3.5 text-[#DC2626]" />
+                          ) : (member.battery ?? 90) <= 50 ? (
+                            <BatteryMedium className="w-3.5 h-3.5 text-[#D97706]" />
+                          ) : (
+                            <Battery className="w-3.5 h-3.5 text-[#166534]" />
+                          )}
+                          <span
+                            className={
+                              (member.battery ?? 90) <= 20
+                                ? 'text-[#DC2626]'
+                                : (member.battery ?? 90) <= 50
+                                ? 'text-[#D97706]'
+                                : 'text-[#166534]'
+                            }
+                          >
+                            {member.battery ?? 90}%
+                          </span>
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Right: Distance Badge + Chevron */}
-                  <div className="flex items-center gap-3 shrink-0 ml-2">
+                  {/* Right: Distance Badge + Map Button + Chevron */}
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {onOpenMap && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenMap(member);
+                        }}
+                        className="p-1.5 rounded-lg bg-[#DCFCE7] hover:bg-[#BBF7D0] text-[#166534] flex items-center justify-center cursor-pointer transition-all shadow-xs"
+                        title="View on Map"
+                      >
+                        <MapPin className="w-4 h-4" />
+                      </button>
+                    )}
+
                     <div
                       onClick={() => onSelectMember(member)}
                       className="text-right cursor-pointer"
                     >
                       <div
-                        className={`px-3 py-1 rounded-2xl label-sm font-bold font-mono inline-block ${
+                        className={`px-2.5 py-1 rounded-2xl label-sm font-bold font-mono inline-block ${
                           isLiveGps
                             ? 'bg-[#DCFCE7] text-[#166534]'
                             : 'bg-[#F1F5F9] text-[#475569]'

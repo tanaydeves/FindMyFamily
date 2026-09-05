@@ -44,7 +44,7 @@ interface DeviceProfile {
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   const io = new Server(server, {
     cors: {

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Users, Compass, Settings } from 'lucide-react';
+import { Users, MapPin, Compass, Settings } from 'lucide-react';
 
-export type TabType = 'family' | 'track' | 'settings';
+export type TabType = 'family' | 'map' | 'track' | 'settings';
 
 interface Props {
   activeTab: TabType;
@@ -21,8 +21,13 @@ export const BottomNavBar: React.FC<Props> = ({
       icon: Users,
     },
     {
+      id: 'map' as TabType,
+      label: 'Live Map',
+      icon: MapPin,
+    },
+    {
       id: 'track' as TabType,
-      label: 'Track',
+      label: 'Radar',
       icon: Compass,
     },
     {
