@@ -31,6 +31,7 @@ interface Props {
   isOffline: boolean;
   lang: LanguageCode;
   myDeviceId: string;
+  showDemoSimulator?: boolean;
   onBack: () => void;
   onUpdateMyHeading: (heading: number) => void;
   onSimulateStep: (deltaLat: number, deltaLng: number) => void;
@@ -44,6 +45,7 @@ export const ArrowScreen: React.FC<Props> = ({
   isOffline,
   lang,
   myDeviceId,
+  showDemoSimulator = false,
   onBack,
   onUpdateMyHeading,
   onSimulateStep,
@@ -233,51 +235,53 @@ export const ArrowScreen: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Simulator Toolbar (Crowd walk & compass rotate testing) */}
-      <div className="px-4 sm:px-6 py-2.5 bg-white border-t border-[#E2E8F0] shrink-0">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="label-sm font-semibold text-[#5C7168] uppercase font-['Inter']">
-            Simulator
-          </span>
-          <span className="label-sm font-mono text-[#1B4332] font-bold">
-            {Math.round(bearing)}° Bearing
-          </span>
-        </div>
+      {/* Simulator Toolbar (Crowd walk & compass rotate testing - hidden by default) */}
+      {showDemoSimulator && (
+        <div className="px-4 sm:px-6 py-2.5 bg-white border-t border-[#E2E8F0] shrink-0">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="label-sm font-semibold text-[#5C7168] uppercase font-['Inter']">
+              Simulator
+            </span>
+            <span className="label-sm font-mono text-[#1B4332] font-bold">
+              {Math.round(bearing)}° Bearing
+            </span>
+          </div>
 
-        <div className="grid grid-cols-4 gap-2">
-          <button
-            onClick={() => handleTurn(-30)}
-            className="py-2 px-2 rounded-lg bg-[#F8FAF9] hover:bg-[#E2E8F0] border border-[#E2E8F0] label-sm font-semibold text-[#0D2119] flex items-center justify-center gap-1 cursor-pointer"
-            title="Turn -30°"
-          >
-            <RotateCw className="w-3.5 h-3.5 -scale-x-100 text-[#1B4332]" />
-            <span>-30°</span>
-          </button>
-          <button
-            onClick={() => handleTurn(30)}
-            className="py-2 px-2 rounded-lg bg-[#F8FAF9] hover:bg-[#E2E8F0] border border-[#E2E8F0] label-sm font-semibold text-[#0D2119] flex items-center justify-center gap-1 cursor-pointer"
-            title="Turn +30°"
-          >
-            <RotateCw className="w-3.5 h-3.5 text-[#1B4332]" />
-            <span>+30°</span>
-          </button>
-          <button
-            onClick={() => handleWalk(true)}
-            className="py-2 px-2 rounded-lg bg-[#1B4332] hover:bg-[#012D1D] text-white label-sm font-bold flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-            title="Step 10m closer"
-          >
-            <Footprints className="w-3.5 h-3.5" />
-            <span>+10m</span>
-          </button>
-          <button
-            onClick={() => handleWalk(false)}
-            className="py-2 px-2 rounded-lg bg-[#F8FAF9] hover:bg-[#E2E8F0] border border-[#E2E8F0] label-sm font-semibold text-[#5C7168] flex items-center justify-center gap-1 cursor-pointer"
-            title="Step 10m away"
-          >
-            <span>Away</span>
-          </button>
+          <div className="grid grid-cols-4 gap-2">
+            <button
+              onClick={() => handleTurn(-30)}
+              className="py-2 px-2 rounded-lg bg-[#F8FAF9] hover:bg-[#E2E8F0] border border-[#E2E8F0] label-sm font-semibold text-[#0D2119] flex items-center justify-center gap-1 cursor-pointer"
+              title="Turn -30°"
+            >
+              <RotateCw className="w-3.5 h-3.5 -scale-x-100 text-[#1B4332]" />
+              <span>-30°</span>
+            </button>
+            <button
+              onClick={() => handleTurn(30)}
+              className="py-2 px-2 rounded-lg bg-[#F8FAF9] hover:bg-[#E2E8F0] border border-[#E2E8F0] label-sm font-semibold text-[#0D2119] flex items-center justify-center gap-1 cursor-pointer"
+              title="Turn +30°"
+            >
+              <RotateCw className="w-3.5 h-3.5 text-[#1B4332]" />
+              <span>+30°</span>
+            </button>
+            <button
+              onClick={() => handleWalk(true)}
+              className="py-2 px-2 rounded-lg bg-[#1B4332] hover:bg-[#012D1D] text-white label-sm font-bold flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+              title="Step 10m closer"
+            >
+              <Footprints className="w-3.5 h-3.5" />
+              <span>+10m</span>
+            </button>
+            <button
+              onClick={() => handleWalk(false)}
+              className="py-2 px-2 rounded-lg bg-[#F8FAF9] hover:bg-[#E2E8F0] border border-[#E2E8F0] label-sm font-semibold text-[#5C7168] flex items-center justify-center gap-1 cursor-pointer"
+              title="Step 10m away"
+            >
+              <span>Away</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Bottom of Screen: Full-width error-red Distress Alert Button */}
       <div className="p-4 sm:px-6 sm:py-5 bg-white border-t border-[#E2E8F0] shrink-0">
