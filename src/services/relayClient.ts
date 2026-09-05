@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { LocationData, DistressAlert } from '../types';
 
-export const DEFAULT_SERVER_URL = 'http://192.168.31.97:3000';
+export const DEFAULT_SERVER_URL = 'https://findmyfamily.onrender.com';
 
 class RelayClient {
   private socket: Socket | null = null;
