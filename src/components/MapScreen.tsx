@@ -52,6 +52,8 @@ export const MapScreen: React.FC<Props> = ({
   const markersRef = useRef<{ [key: string]: any }>({});
   const myMarkerRef = useRef<any>(null);
   const polylineRef = useRef<any>(null);
+  const pairedMembersRef = useRef(pairedMembers);
+  pairedMembersRef.current = pairedMembers;
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize Leaflet Map
@@ -83,20 +85,32 @@ export const MapScreen: React.FC<Props> = ({
       mapInstanceRef.current = map;
       setMapLoaded(true);
 
-      // Trigger map resize after DOM mount
+      // Responsive auto-resize watcher for dynamic containers and orientation changes
+      let resizeObserver: ResizeObserver | null = null;
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => {
+          map.invalidateSize();
+        });
+        resizeObserver.observe(mapContainerRef.current);
+      }
+
+      // Initial map resize after DOM mount
       setTimeout(() => {
         map.invalidateSize();
       }, 250);
+
+      return () => {
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+        }
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      };
     } catch (err) {
       console.error('Failed to initialize map:', err);
     }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
   }, []);
 
   // Update "Me" Marker
@@ -185,7 +199,8 @@ export const MapScreen: React.FC<Props> = ({
       } else {
         const marker = L.marker(latLng, { icon: memberIcon }).addTo(map);
         marker.on('click', () => {
-          onSelectMember(member);
+          const latest = pairedMembersRef.current.find((m) => m.id === member.id) || member;
+          onSelectMember(latest);
         });
         markersRef.current[member.id] = marker;
       }

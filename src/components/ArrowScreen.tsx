@@ -52,6 +52,7 @@ export const ArrowScreen: React.FC<Props> = ({
   onOpenDistressModal,
 }) => {
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [simulatorActive, setSimulatorActive] = useState(showDemoSimulator);
   const lastAngleRef = useRef(0);
   const [smoothAngle, setSmoothAngle] = useState(0);
 
@@ -167,6 +168,19 @@ export const ArrowScreen: React.FC<Props> = ({
           >
             {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-[#94A3B8]" />}
           </button>
+          <button
+            id="btn-toggle-arrow-simulator"
+            onClick={() => setSimulatorActive(!simulatorActive)}
+            className={`w-10 h-10 rounded-xl border transition-all cursor-pointer shadow-xs flex items-center justify-center ${
+              simulatorActive
+                ? 'bg-[#1B4332] text-white border-[#1B4332]'
+                : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAF9] text-[#1B4332]'
+            }`}
+            title={simulatorActive ? 'Hide Walk Simulator' : 'Test Walk Simulator'}
+            aria-label="Toggle Simulator Controls"
+          >
+            <Footprints className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
@@ -235,8 +249,8 @@ export const ArrowScreen: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Simulator Toolbar (Crowd walk & compass rotate testing - hidden by default) */}
-      {showDemoSimulator && (
+      {/* Simulator Toolbar (Crowd walk & compass rotate testing - toggled via Footprints icon) */}
+      {simulatorActive && (
         <div className="px-4 sm:px-6 py-2.5 bg-white border-t border-[#E2E8F0] shrink-0">
           <div className="flex items-center justify-between mb-1.5">
             <span className="label-sm font-semibold text-[#5C7168] uppercase font-['Inter']">

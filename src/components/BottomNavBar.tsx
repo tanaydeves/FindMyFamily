@@ -55,7 +55,12 @@ export const BottomNavBar: React.FC<Props> = ({
             }`}
             aria-label={tab.label}
           >
-            <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+            <div className="relative">
+              <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+              {tab.id === 'track' && hasTrackTarget && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#16A34A] ring-2 ring-white animate-pulse" />
+              )}
+            </div>
             <span className="text-sm font-['Inter']">{tab.label}</span>
           </button>
         );

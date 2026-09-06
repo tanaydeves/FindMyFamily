@@ -121,10 +121,10 @@ export const HomeScreen: React.FC<Props> = ({
       </AnimatePresence>
 
       {/* Main List Container */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pt-4 pb-24 space-y-4">
         {/* Title Header */}
         <div>
-          <h1 className="headline-lg text-[#0D2119]">My Family</h1>
+          <h2 className="headline-lg text-[#0D2119]">My Family</h2>
           <p className="body-md text-[#5C7168] mt-0.5">
             Select a member to track their location.
           </p>

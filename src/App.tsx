@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { SplashScreen } from './components/SplashScreen';
 import { TopAppBar } from './components/TopAppBar';
 import { NavDrawer } from './components/NavDrawer';
@@ -406,26 +406,48 @@ export default function App() {
     };
   }, []);
 
-  // Broadcast location periodically
+  // Broadcast state ref to prevent interval recreation starvation on compass rotation
+  const broadcastStateRef = useRef({
+    myLocation,
+    myDeviceName,
+    compassHeading,
+    myBattery,
+    myColor,
+    isOffline,
+  });
+
+  useEffect(() => {
+    broadcastStateRef.current = {
+      myLocation,
+      myDeviceName,
+      compassHeading,
+      myBattery,
+      myColor,
+      isOffline,
+    };
+  }, [myLocation, myDeviceName, compassHeading, myBattery, myColor, isOffline]);
+
+  // Broadcast location periodically (steady 4-second cadence)
   useEffect(() => {
     const interval = setInterval(async () => {
+      const state = broadcastStateRef.current;
       const res = await relayClient.pushLocation(
-        myLocation.latitude,
-        myLocation.longitude,
+        state.myLocation.latitude,
+        state.myLocation.longitude,
         3.0,
-        myDeviceName,
-        compassHeading,
-        myBattery,
-        myColor
+        state.myDeviceName,
+        state.compassHeading,
+        state.myBattery,
+        state.myColor
       );
 
       // If offline mode is enabled, or network push failed, trigger SMS fallback
-      if (isOffline || (res && !res.success)) {
+      if (state.isOffline || (res && !res.success)) {
         sendSmsToPairedMembers(false);
       }
     }, 4000);
     return () => clearInterval(interval);
-  }, [myLocation, myDeviceName, compassHeading, myColor, isOffline, pairedMembers]);
+  }, []);
 
   // Device orientation / compass
   useEffect(() => {

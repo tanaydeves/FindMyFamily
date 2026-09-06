@@ -124,7 +124,8 @@ export const RadarScreen: React.FC<Props> = ({
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onSelectMember(member)}
                 style={{
-                  transform: `translate(${x}px, ${y}px)`,
+                  x,
+                  y,
                 }}
                 className="absolute z-20 flex flex-col items-center cursor-pointer"
               >

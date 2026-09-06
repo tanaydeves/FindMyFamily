@@ -12,7 +12,9 @@
     "cap:open": "cap open android",
     "build:apk": "vite build && cap sync && cd android && gradlew assembleDebug && cd .. && copy android\\app\\build\\outputs\\apk\\debug\\app-debug.apk FindMyFamily.apk",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test test/**/*.test.ts",
+    "update:apk": "npm run cap:sync && powershell -ExecutionPolicy Bypass -File .\\scripts\\update-apk.ps1"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { Capacitor } from '@capacitor/core';
 import { LocationData, DistressAlert } from '../types';
 
 export const DEFAULT_SERVER_URL = 'https://findmyfamily.onrender.com';
@@ -30,12 +31,16 @@ class RelayClient {
         const saved = localStorage.getItem('fmf_server_url');
         if (saved && saved.trim()) return saved.trim().replace(/\/+$/, '');
 
-        // If running in browser and not on local mobile simulator / capacitor
+        // If native Capacitor app on Android/iOS, default to cloud relay
+        if (Capacitor.isNativePlatform()) {
+          return DEFAULT_SERVER_URL;
+        }
+
+        // When running in a web browser (desktop or mobile browser)
         const origin = window.location.origin;
         if (
           origin &&
-          !origin.includes('localhost') &&
-          !origin.includes('127.0.0.1') &&
+          (origin.startsWith('http://') || origin.startsWith('https://')) &&
           !origin.startsWith('capacitor:') &&
           !origin.startsWith('file:')
         ) {

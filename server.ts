@@ -175,7 +175,15 @@ async function startServer() {
     }
 
     const normCircle = circleId.toUpperCase();
-    const existing = devices.get(deviceId) || {
+    const prevDev = devices.get(deviceId);
+    if (prevDev && prevDev.circleId && prevDev.circleId !== normCircle) {
+      circles.get(prevDev.circleId)?.delete(deviceId);
+      if (circles.get(prevDev.circleId)?.size === 0) {
+        circles.delete(prevDev.circleId);
+      }
+    }
+
+    const existing = prevDev || {
       deviceId,
       name: name || 'Family Member',
       circleId: normCircle,
@@ -194,7 +202,7 @@ async function startServer() {
     existing.lastSeen = timestamp;
     existing.accuracy = accuracy;
     if (name) existing.name = name;
-    if (circleId) existing.circleId = normCircle;
+    existing.circleId = normCircle;
     if (heading !== undefined) existing.heading = heading;
     if (battery !== undefined) existing.battery = battery;
     if (color) existing.color = color;
@@ -274,10 +282,20 @@ async function startServer() {
         if (!deviceId) return;
         const normCircle = (circleId || DEFAULT_CIRCLE).toUpperCase();
 
+        let dev = devices.get(deviceId);
+        if (dev && dev.circleId && dev.circleId !== normCircle) {
+          // Leave old circle room and cleanup membership
+          socket.leave(dev.circleId);
+          circles.get(dev.circleId)?.delete(deviceId);
+          if (circles.get(dev.circleId)?.size === 0) {
+            circles.delete(dev.circleId);
+          }
+          io.to(dev.circleId).emit('member_left', { deviceId });
+        }
+
         socket.join(normCircle);
         socketToDevice.set(socket.id, deviceId);
 
-        let dev = devices.get(deviceId);
         if (!dev) {
           dev = {
             deviceId,
@@ -341,19 +359,47 @@ async function startServer() {
 
       if (!deviceId) return;
       const normCircle = circleId.toUpperCase();
+      socket.join(normCircle);
 
-      const existing = devices.get(deviceId);
+      let existing = devices.get(deviceId);
       if (existing) {
+        if (existing.circleId !== normCircle) {
+          socket.leave(existing.circleId);
+          circles.get(existing.circleId)?.delete(deviceId);
+          if (circles.get(existing.circleId)?.size === 0) {
+            circles.delete(existing.circleId);
+          }
+          existing.circleId = normCircle;
+        }
         existing.latitude = latitude;
         existing.longitude = longitude;
         existing.lastSeen = timestamp;
         existing.accuracy = accuracy;
+        existing.socketId = socket.id;
         if (name) existing.name = name;
         if (heading !== undefined) existing.heading = heading;
         if (battery !== undefined) existing.battery = battery;
         if (color) existing.color = color;
         devices.set(deviceId, existing);
+      } else {
+        existing = {
+          deviceId,
+          name: name || 'Family Member',
+          circleId: normCircle,
+          socketId: socket.id,
+          lastSeen: timestamp,
+          latitude,
+          longitude,
+          accuracy,
+          heading,
+          battery: battery ?? 95,
+          color: color || '#4ADE80',
+        };
+        devices.set(deviceId, existing);
       }
+
+      if (!circles.has(normCircle)) circles.set(normCircle, new Set());
+      circles.get(normCircle)!.add(deviceId);
 
       const locData: LocationData = {
         deviceId,
@@ -362,10 +408,10 @@ async function startServer() {
         longitude,
         timestamp,
         accuracy,
-        name: name || existing?.name || 'Family Member',
+        name: name || existing.name || 'Family Member',
         heading,
-        battery,
-        color: color || existing?.color,
+        battery: battery ?? existing.battery,
+        color: color || existing.color,
       };
 
       // Emit to circle room
