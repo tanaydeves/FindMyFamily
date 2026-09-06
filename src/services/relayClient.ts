@@ -87,9 +87,9 @@ class RelayClient {
       this.socket = io(this.serverUrl, {
         transports: ['websocket', 'polling'],
         autoConnect: true,
-        reconnectionAttempts: 30,
+        reconnectionAttempts: 10,
         reconnectionDelay: 1000,
-        timeout: 8000,
+        timeout: 4000,
       });
 
       this.socket.on('connect', () => {
@@ -143,7 +143,7 @@ class RelayClient {
       console.warn('[RELAY CLIENT] Socket init failed:', err);
     }
 
-    // Also fetch current circle members immediately via REST
+    // Also fetch current circle members immediately via REST with 3.5s timeout
     this.fetchCircleDevices(this.myCircleId);
   }
 
@@ -185,7 +185,9 @@ class RelayClient {
   async fetchCircleDevices(circleId: string): Promise<LocationData[]> {
     if (this.isOfflineSimulated) return [];
     try {
-      const res = await fetch(`${this.serverUrl}/api/circles/${encodeURIComponent(circleId)}/devices`);
+      const res = await fetch(`${this.serverUrl}/api/circles/${encodeURIComponent(circleId)}/devices`, {
+        signal: AbortSignal.timeout(3500),
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.members && Array.isArray(data.members)) {
@@ -208,6 +210,7 @@ class RelayClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetDeviceId }),
+        signal: AbortSignal.timeout(3500),
       });
       return await res.json();
     } catch {
@@ -251,6 +254,7 @@ class RelayClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(3500),
       });
       if (res.ok) return { success: true, method: 'http' };
     } catch {
@@ -285,10 +289,29 @@ class RelayClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(3500),
       });
       return await res.json();
     } catch {
       return { success: false, fallbackToSmsRecommended: true };
+    }
+  }
+
+  /**
+   * Safely clears cached network states and temporary storage without breaking credentials
+   */
+  clearAppCache(): { success: boolean; message: string } {
+    try {
+      if (typeof window !== 'undefined') {
+        if ('caches' in window) {
+          caches.keys().then((names) => {
+            names.forEach((name) => caches.delete(name));
+          });
+        }
+      }
+      return { success: true, message: 'Cache memory cleaned successfully' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Failed to clear cache' };
     }
   }
 

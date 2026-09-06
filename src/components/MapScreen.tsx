@@ -20,8 +20,8 @@ import {
 import { FamilyMember, LanguageCode } from '../types';
 import { calculateDistance, calculateBearing } from '../services/navigationMath';
 
-// Declare Leaflet global type from CDN script
-declare const L: any;
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface Props {
   myLocation: { latitude: number; longitude: number };
@@ -104,7 +104,7 @@ export const MapScreen: React.FC<Props> = ({
     if (!mapInstanceRef.current || typeof L === 'undefined') return;
 
     const map = mapInstanceRef.current;
-    const latLng = [myLocation.latitude, myLocation.longitude];
+    const latLng: [number, number] = [myLocation.latitude, myLocation.longitude];
 
     const myHtml = `
       <div style="position: relative; display: flex; align-items: center; justify-content: center;">
@@ -149,7 +149,7 @@ export const MapScreen: React.FC<Props> = ({
 
     // Add or update member markers
     pairedMembers.forEach((member) => {
-      const latLng = [member.lastLat, member.lastLng];
+      const latLng: [number, number] = [member.lastLat, member.lastLng];
       const isSelected = selectedMember?.id === member.id;
       const batteryVal = member.battery ?? 90;
       const initial = member.name.charAt(0).toUpperCase();
@@ -199,7 +199,7 @@ export const MapScreen: React.FC<Props> = ({
     const map = mapInstanceRef.current;
 
     if (selectedMember) {
-      const latLngs = [
+      const latLngs: [number, number][] = [
         [myLocation.latitude, myLocation.longitude],
         [selectedMember.lastLat, selectedMember.lastLng],
       ];

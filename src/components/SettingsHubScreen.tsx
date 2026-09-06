@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   User,
   Globe,
@@ -9,8 +9,11 @@ import {
   Info,
   LogOut,
   ChevronRight,
+  Trash2,
+  CheckCircle2,
 } from 'lucide-react';
 import { LanguageCode } from '../types';
+import { relayClient } from '../services/relayClient';
 
 interface Props {
   circleId: string;
@@ -39,6 +42,7 @@ export const SettingsHubScreen: React.FC<Props> = ({
   onOpenAbout,
   onLeaveCircle,
 }) => {
+  const [cacheCleared, setCacheCleared] = useState(false);
   const langLabelMap: Record<LanguageCode, string> = {
     en: 'English',
     hi: 'हिंदी',
@@ -157,6 +161,30 @@ export const SettingsHubScreen: React.FC<Props> = ({
               </div>
               <div className="flex items-center gap-2">
                 <span className="label-sm text-[#5C7168]">v2.0 (Kumbh 2026)</span>
+                <ChevronRight className="w-4 h-4 text-[#5C7168]" />
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                relayClient.clearAppCache();
+                setCacheCleared(true);
+                setTimeout(() => setCacheCleared(false), 3000);
+              }}
+              className="w-full min-h-[52px] p-4 flex items-center justify-between hover:bg-[#F8FAF9] active:bg-[#ECEEED] transition-colors cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-3.5">
+                <Trash2 className="w-5 h-5 text-[#5C7168]" />
+                <span className="body-md font-medium text-[#0D2119]">Clear Cache Memory</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {cacheCleared ? (
+                  <span className="label-sm text-[#006D36] font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" /> Cleared
+                  </span>
+                ) : (
+                  <span className="label-sm text-[#5C7168]">Clean & Optimize</span>
+                )}
                 <ChevronRight className="w-4 h-4 text-[#5C7168]" />
               </div>
             </button>

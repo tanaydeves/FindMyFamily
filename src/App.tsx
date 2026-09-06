@@ -32,8 +32,18 @@ const DEFAULT_LAT = 25.4358;
 const DEFAULT_LNG = 81.8463;
 
 export default function App() {
-  // Onboarding Screen state
-  const [onboardingScreen, setOnboardingScreen] = useState<'splash' | 'permissions' | 'language' | 'done'>('splash');
+  // Onboarding Screen state (persisted for instant zero-lag boot)
+  const [onboardingScreen, setOnboardingScreen] = useState<'splash' | 'permissions' | 'language' | 'done'>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const onboarded = localStorage.getItem('fmf_onboarded');
+        if (onboarded === 'true') {
+          return 'done';
+        }
+      }
+    } catch {}
+    return 'splash';
+  });
   const [currentTab, setCurrentTab] = useState<TabType>('family');
   const [lang, setLang] = useState<LanguageCode>('en');
 
@@ -454,6 +464,7 @@ export default function App() {
     setLang(newLang);
     try {
       localStorage.setItem('fmf_lang', newLang);
+      localStorage.setItem('fmf_onboarded', 'true');
     } catch {}
     if (onboardingScreen === 'language') {
       setOnboardingScreen('done');

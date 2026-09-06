@@ -12,14 +12,15 @@ export const SplashScreen: React.FC<Props> = ({ onFinish }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onFinish();
-    }, 2200);
+    }, 500);
     return () => clearTimeout(timer);
   }, [onFinish]);
 
   return (
     <div
       id="splash-screen"
-      className="flex flex-col items-center justify-between min-h-[580px] h-full w-full bg-[#1B4332] text-white p-8 select-none text-center relative overflow-hidden"
+      onClick={onFinish}
+      className="flex flex-col items-center justify-between min-h-[580px] h-full w-full bg-[#1B4332] text-white p-8 select-none text-center relative overflow-hidden cursor-pointer"
     >
       {/* Centered Brand Content */}
       <div className="my-auto flex flex-col items-center z-10">
@@ -27,7 +28,7 @@ export const SplashScreen: React.FC<Props> = ({ onFinish }) => {
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="w-[100px] h-[100px] rounded-full bg-white flex items-center justify-center shadow-lg mb-6 shrink-0"
         >
           <Compass className="w-14 h-14 text-[#4ADE80] stroke-[2.4]" />
@@ -37,7 +38,7 @@ export const SplashScreen: React.FC<Props> = ({ onFinish }) => {
         <motion.h1
           initial={{ y: 15, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
+          transition={{ delay: 0.1, duration: 0.3 }}
           className="headline-lg text-white mb-2"
         >
           Find My Family
@@ -47,7 +48,7 @@ export const SplashScreen: React.FC<Props> = ({ onFinish }) => {
         <motion.p
           initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.35, duration: 0.5 }}
+          transition={{ delay: 0.15, duration: 0.3 }}
           className="body-md text-white/70 max-w-xs font-normal"
         >
           Connecting you to what matters.
@@ -70,7 +71,7 @@ export const SplashScreen: React.FC<Props> = ({ onFinish }) => {
           />
         </svg>
         <span className="label-sm text-[#A5D0B9] tracking-[0.2em] uppercase font-['Inter'] font-semibold">
-          INITIALIZING SECURE LINK...
+          READY • TAP TO ENTER
         </span>
       </div>
     </div>
