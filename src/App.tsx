@@ -1,23 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { SplashScreen } from './components/SplashScreen';
-import { PermissionsScreen } from './components/PermissionsScreen';
-import { LanguageSelectScreen } from './components/LanguageSelectScreen';
 import { TopAppBar } from './components/TopAppBar';
 import { NavDrawer } from './components/NavDrawer';
 import { BottomNavBar, TabType } from './components/BottomNavBar';
 import { HomeScreen } from './components/HomeScreen';
 import { ArrowScreen } from './components/ArrowScreen';
-import { RadarScreen } from './components/RadarScreen';
-import { MapScreen } from './components/MapScreen';
-import { SettingsHubScreen } from './components/SettingsHubScreen';
-import { AddMemberSheet } from './components/AddMemberSheet';
-import { InviteCircleScreen } from './components/InviteCircleScreen';
-import { RoomsScreen } from './components/RoomsScreen';
-import { ProfileScreen } from './components/ProfileScreen';
-import { ConnectionSettingsScreen } from './components/ConnectionSettingsScreen';
-import { DistressConfirmModal } from './components/DistressConfirmModal';
-import { HelpSafetyModal } from './components/HelpSafetyModal';
-import { SmsHubModal } from './components/SmsHubModal';
+
+// Code-split / Lazy-load secondary screens and modals to ensure instant app boot
+const PermissionsScreen = lazy(() => import('./components/PermissionsScreen').then(m => ({ default: m.PermissionsScreen })));
+const LanguageSelectScreen = lazy(() => import('./components/LanguageSelectScreen').then(m => ({ default: m.LanguageSelectScreen })));
+const RadarScreen = lazy(() => import('./components/RadarScreen').then(m => ({ default: m.RadarScreen })));
+const MapScreen = lazy(() => import('./components/MapScreen').then(m => ({ default: m.MapScreen })));
+const SettingsHubScreen = lazy(() => import('./components/SettingsHubScreen').then(m => ({ default: m.SettingsHubScreen })));
+const AddMemberSheet = lazy(() => import('./components/AddMemberSheet').then(m => ({ default: m.AddMemberSheet })));
+const InviteCircleScreen = lazy(() => import('./components/InviteCircleScreen').then(m => ({ default: m.InviteCircleScreen })));
+const RoomsScreen = lazy(() => import('./components/RoomsScreen').then(m => ({ default: m.RoomsScreen })));
+const ProfileScreen = lazy(() => import('./components/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
+const ConnectionSettingsScreen = lazy(() => import('./components/ConnectionSettingsScreen').then(m => ({ default: m.ConnectionSettingsScreen })));
+const DistressConfirmModal = lazy(() => import('./components/DistressConfirmModal').then(m => ({ default: m.DistressConfirmModal })));
+const HelpSafetyModal = lazy(() => import('./components/HelpSafetyModal').then(m => ({ default: m.HelpSafetyModal })));
+const SmsHubModal = lazy(() => import('./components/SmsHubModal').then(m => ({ default: m.SmsHubModal })));
+
 import { FamilyMember, LanguageCode, DistressAlert, LocationData } from './types';
 import { relayClient } from './services/relayClient';
 import { batteryService } from './services/batteryService';
@@ -26,6 +29,12 @@ import { ParsedSms, SmsService } from './services/smsService';
 import { Compass, Users } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { NativeSync } from './services/nativeSync';
+
+const ScreenLoadingFallback = () => (
+  <div className="flex-1 flex items-center justify-center h-full w-full bg-[#F8FAF9] p-8">
+    <div className="w-8 h-8 rounded-full border-2 border-[#1B4332]/20 border-t-[#1B4332] animate-spin" />
+  </div>
+);
 
 // Default Sangam, Prayagraj Kumbh Mela seed coordinates
 const DEFAULT_LAT = 25.4358;
@@ -592,10 +601,12 @@ export default function App() {
       {onboardingScreen === 'permissions' && (
         <div className="w-full h-screen flex items-center justify-center p-0">
           <div className="w-full max-w-md h-full bg-[#FFFFFF] shadow-lg flex flex-col">
-            <PermissionsScreen
-              lang={lang}
-              onGranted={() => setOnboardingScreen('language')}
-            />
+            <Suspense fallback={<ScreenLoadingFallback />}>
+              <PermissionsScreen
+                lang={lang}
+                onGranted={() => setOnboardingScreen('language')}
+              />
+            </Suspense>
           </div>
         </div>
       )}
@@ -603,11 +614,13 @@ export default function App() {
       {onboardingScreen === 'language' && (
         <div className="w-full h-screen flex items-center justify-center p-0">
           <div className="w-full max-w-md h-full bg-[#FFFFFF] shadow-lg flex flex-col">
-            <LanguageSelectScreen
-              currentLang={lang}
-              onSelectLang={handleSelectLang}
-              onBack={() => setOnboardingScreen('permissions')}
-            />
+            <Suspense fallback={<ScreenLoadingFallback />}>
+              <LanguageSelectScreen
+                currentLang={lang}
+                onSelectLang={handleSelectLang}
+                onBack={() => setOnboardingScreen('permissions')}
+              />
+            </Suspense>
           </div>
         </div>
       )}
@@ -656,19 +669,21 @@ export default function App() {
           {/* Active Screen Stage */}
           <main className="flex-1 flex flex-col overflow-hidden relative">
             {showRadar ? (
-              <RadarScreen
-                lang={lang}
-                myLocation={myLocation}
-                myDeviceName={myDeviceName}
-                compassHeading={compassHeading}
-                pairedMembers={pairedMembers}
-                onBack={() => setShowRadar(false)}
-                onSelectMember={(member) => {
-                  setSelectedMember(member);
-                  setShowRadar(false);
-                  setCurrentTab('track');
-                }}
-              />
+              <Suspense fallback={<ScreenLoadingFallback />}>
+                <RadarScreen
+                  lang={lang}
+                  myLocation={myLocation}
+                  myDeviceName={myDeviceName}
+                  compassHeading={compassHeading}
+                  pairedMembers={pairedMembers}
+                  onBack={() => setShowRadar(false)}
+                  onSelectMember={(member) => {
+                    setSelectedMember(member);
+                    setShowRadar(false);
+                    setCurrentTab('track');
+                  }}
+                />
+              </Suspense>
             ) : currentTab === 'family' ? (
               <HomeScreen
                 myLocation={myLocation}
@@ -691,21 +706,23 @@ export default function App() {
                 }}
               />
             ) : currentTab === 'map' ? (
-              <MapScreen
-                myLocation={myLocation}
-                myDeviceName={myDeviceName}
-                myColor={myColor}
-                myBattery={myBattery}
-                pairedMembers={pairedMembers}
-                selectedMember={selectedMember}
-                onSelectMember={(member) => setSelectedMember(member)}
-                onNavigateToArrow={(member) => {
-                  setSelectedMember(member);
-                  setCurrentTab('track');
-                }}
-                onBack={() => setCurrentTab('family')}
-                lang={lang}
-              />
+              <Suspense fallback={<ScreenLoadingFallback />}>
+                <MapScreen
+                  myLocation={myLocation}
+                  myDeviceName={myDeviceName}
+                  myColor={myColor}
+                  myBattery={myBattery}
+                  pairedMembers={pairedMembers}
+                  selectedMember={selectedMember}
+                  onSelectMember={(member) => setSelectedMember(member)}
+                  onNavigateToArrow={(member) => {
+                    setSelectedMember(member);
+                    setCurrentTab('track');
+                  }}
+                  onBack={() => setCurrentTab('family')}
+                  lang={lang}
+                />
+              </Suspense>
             ) : currentTab === 'track' ? (
               selectedMember ? (
                 <ArrowScreen
@@ -749,29 +766,31 @@ export default function App() {
               )
             ) : (
               /* Settings Hub Tab */
-              <SettingsHubScreen
-                circleId={circleId}
-                myDeviceName={myDeviceName}
-                currentLang={lang}
-                onOpenProfile={() => setProfileOpen(true)}
-                onOpenLanguage={() => {
-                  setOnboardingScreen('language');
-                }}
-                onOpenRooms={() => setRoomsOpen(true)}
-                onOpenServerSettings={() => setServerSettingsOpen(true)}
-                onOpenSmsHub={() => setSmsHubOpen(true)}
-                onOpenHelp={() => {
-                  setHelpModalMode('help');
-                  setHelpModalOpen(true);
-                }}
-                onOpenAbout={() => {
-                  setHelpModalMode('about');
-                  setHelpModalOpen(true);
-                }}
-                onLeaveCircle={() => {
-                  handleChangeCircle('KUMBH-2026');
-                }}
-              />
+              <Suspense fallback={<ScreenLoadingFallback />}>
+                <SettingsHubScreen
+                  circleId={circleId}
+                  myDeviceName={myDeviceName}
+                  currentLang={lang}
+                  onOpenProfile={() => setProfileOpen(true)}
+                  onOpenLanguage={() => {
+                    setOnboardingScreen('language');
+                  }}
+                  onOpenRooms={() => setRoomsOpen(true)}
+                  onOpenServerSettings={() => setServerSettingsOpen(true)}
+                  onOpenSmsHub={() => setSmsHubOpen(true)}
+                  onOpenHelp={() => {
+                    setHelpModalMode('help');
+                    setHelpModalOpen(true);
+                  }}
+                  onOpenAbout={() => {
+                    setHelpModalMode('about');
+                    setHelpModalOpen(true);
+                  }}
+                  onLeaveCircle={() => {
+                    handleChangeCircle('KUMBH-2026');
+                  }}
+                />
+              </Suspense>
             )}
           </main>
 
@@ -787,74 +806,106 @@ export default function App() {
         </div>
       )}
 
-      {/* MODALS & SHEETS */}
+      {/* MODALS & SHEETS (Dynamically loaded when triggered) */}
 
       {/* 5.1 Add Member Sheet */}
-      <AddMemberSheet
-        isOpen={addMemberOpen}
-        onClose={() => setAddMemberOpen(false)}
-        circleId={circleId}
-        myDeviceId={myDeviceId}
-        myDeviceName={myDeviceName}
-        myLocation={myLocation}
-        onPairMember={handlePairMember}
-      />
+      {addMemberOpen && (
+        <Suspense fallback={null}>
+          <AddMemberSheet
+            isOpen={addMemberOpen}
+            onClose={() => setAddMemberOpen(false)}
+            circleId={circleId}
+            myDeviceId={myDeviceId}
+            myDeviceName={myDeviceName}
+            myLocation={myLocation}
+            onPairMember={handlePairMember}
+          />
+        </Suspense>
+      )}
 
       {/* 5.2 Invite Circle Sheet */}
-      <InviteCircleScreen
-        isOpen={inviteOpen}
-        onClose={() => setInviteOpen(false)}
-        circleId={circleId}
-      />
+      {inviteOpen && (
+        <Suspense fallback={null}>
+          <InviteCircleScreen
+            isOpen={inviteOpen}
+            onClose={() => setInviteOpen(false)}
+            circleId={circleId}
+          />
+        </Suspense>
+      )}
 
       {/* 5.3 Rooms / Switch Circle */}
-      <RoomsScreen
-        isOpen={roomsOpen}
-        onClose={() => setRoomsOpen(false)}
-        currentCircleId={circleId}
-        onChangeCircle={handleChangeCircle}
-      />
+      {roomsOpen && (
+        <Suspense fallback={null}>
+          <RoomsScreen
+            isOpen={roomsOpen}
+            onClose={() => setRoomsOpen(false)}
+            currentCircleId={circleId}
+            onChangeCircle={handleChangeCircle}
+          />
+        </Suspense>
+      )}
 
       {/* 5.4 My Profile */}
-      <ProfileScreen
-        isOpen={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        myDeviceName={myDeviceName}
-        myPhone={myPhone}
-        myColor={myColor}
-        myDeviceId={myDeviceId}
-        onUpdateProfile={handleUpdateProfile}
-      />
+      {profileOpen && (
+        <Suspense fallback={null}>
+          <ProfileScreen
+            isOpen={profileOpen}
+            onClose={() => setProfileOpen(false)}
+            myDeviceName={myDeviceName}
+            myPhone={myPhone}
+            myColor={myColor}
+            myDeviceId={myDeviceId}
+            onUpdateProfile={handleUpdateProfile}
+          />
+        </Suspense>
+      )}
 
       {/* 5.5 Advanced Connection Settings */}
-      <ConnectionSettingsScreen
-        isOpen={serverSettingsOpen}
-        onClose={() => setServerSettingsOpen(false)}
-      />
+      {serverSettingsOpen && (
+        <Suspense fallback={null}>
+          <ConnectionSettingsScreen
+            isOpen={serverSettingsOpen}
+            onClose={() => setServerSettingsOpen(false)}
+          />
+        </Suspense>
+      )}
 
       {/* 5.7 Distress Alert Confirmation Modal */}
-      <DistressConfirmModal
-        isOpen={distressConfirmOpen}
-        onClose={() => setDistressConfirmOpen(false)}
-        onConfirm={handleTriggerDistressAlert}
-      />
+      {distressConfirmOpen && (
+        <Suspense fallback={null}>
+          <DistressConfirmModal
+            isOpen={distressConfirmOpen}
+            onClose={() => setDistressConfirmOpen(false)}
+            onConfirm={handleTriggerDistressAlert}
+          />
+        </Suspense>
+      )}
 
       {/* SMS Hub Modal */}
-      <SmsHubModal
-        isOpen={smsHubOpen}
-        myDeviceId={myDeviceId}
-        myDeviceName={myDeviceName}
-        myLocation={myLocation}
-        onClose={() => setSmsHubOpen(false)}
-        onApplyParsedSms={handleReceiveParsedSms}
-      />
+      {smsHubOpen && (
+        <Suspense fallback={null}>
+          <SmsHubModal
+            isOpen={smsHubOpen}
+            myDeviceId={myDeviceId}
+            myDeviceName={myDeviceName}
+            myLocation={myLocation}
+            onClose={() => setSmsHubOpen(false)}
+            onApplyParsedSms={handleReceiveParsedSms}
+          />
+        </Suspense>
+      )}
 
       {/* Help & Safety Modal */}
-      <HelpSafetyModal
-        isOpen={helpModalOpen}
-        onClose={() => setHelpModalOpen(false)}
-        mode={helpModalMode}
-      />
+      {helpModalOpen && (
+        <Suspense fallback={null}>
+          <HelpSafetyModal
+            isOpen={helpModalOpen}
+            onClose={() => setHelpModalOpen(false)}
+            mode={helpModalMode}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
