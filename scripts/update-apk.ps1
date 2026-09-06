@@ -39,3 +39,23 @@ try {
 finally {
     $zip.Dispose()
 }
+
+# Sign and zipalign the APK so Android will accept it without "Package is invalid"
+$signerJar = Join-Path $PSScriptRoot "uber-apk-signer.jar"
+if (-not (Test-Path $signerJar)) {
+    Write-Host "Downloading uber-apk-signer.jar..."
+    curl.exe -s -L -o $signerJar "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar"
+}
+
+if (Test-Path $signerJar) {
+    Write-Host "Signing and aligning APK with Android debug key (v1, v2, v3)..."
+    java -jar $signerJar -a $apkFullPath --allowResign --overwrite
+    if ($LASTEXITCODE -ne 0) {
+        throw "APK signing failed with exit code $LASTEXITCODE"
+    }
+    Write-Host "APK signed and verified successfully!"
+} else {
+    Write-Warning "uber-apk-signer.jar not found at $signerJar - APK may be unsigned"
+}
+
+

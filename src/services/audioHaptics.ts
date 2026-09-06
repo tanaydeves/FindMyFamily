@@ -5,6 +5,12 @@ class AudioHapticsService {
   private sirenInterval: any = null;
   private isSirenPlaying = false;
 
+  // Group distress alert state (separate from personal SOS)
+  private groupAlertInterval: any = null;
+  private groupHapticInterval: any = null;
+  private isGroupAlertPlaying = false;
+  private groupAlertTimeout: any = null;
+
   private getAudioContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
     if (!this.ctx) {
@@ -126,6 +132,73 @@ class AudioHapticsService {
       clearInterval(this.sirenInterval);
       this.sirenInterval = null;
     }
+  }
+
+  // Start a LOUD, persistent, repeating alert for ALL group members receiving a distress signal.
+  // Louder gain (0.6), alternating tones, repeating haptics every 2s. Auto-stops after 30s.
+  startGroupDistressAlert() {
+    if (this.isGroupAlertPlaying) return;
+    this.isGroupAlertPlaying = true;
+
+    const playLoudTone = (isHigh: boolean) => {
+      try {
+        const ctx = this.getAudioContext();
+        if (!ctx) return;
+
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        // Louder sawtooth — higher urgency timbre
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(isHigh ? 1040 : 680, now);
+        osc.frequency.linearRampToValueAtTime(isHigh ? 1160 : 560, now + 0.4);
+
+        // 0.6 gain vs personal siren's 0.25 — much louder for group panic
+        gain.gain.setValueAtTime(0.6, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.45);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      } catch {
+        // ignore
+      }
+    };
+
+    // Fire two alternating tones immediately
+    playLoudTone(true);
+    setTimeout(() => playLoudTone(false), 500);
+
+    // Long-short-long haptic burst immediately
+    this.triggerHaptic([400, 100, 200, 100, 600]);
+
+    let step = 0;
+    // Repeat siren every 1.5s (more urgent cadence than personal 450ms — this is group-wide)
+    this.groupAlertInterval = setInterval(() => {
+      step++;
+      playLoudTone(step % 2 === 0);
+      if (step % 2 !== 0) playLoudTone(false); // double tone per cycle
+    }, 750);
+
+    // Repeat strong haptic every 2s
+    this.groupHapticInterval = setInterval(() => {
+      this.triggerHaptic([300, 80, 300, 80, 500]);
+    }, 2000);
+
+    // Auto-stop after 30 seconds to save battery
+    this.groupAlertTimeout = setTimeout(() => {
+      this.stopGroupDistressAlert();
+    }, 30000);
+  }
+
+  // Stop the group distress alert and clean up all timers
+  stopGroupDistressAlert() {
+    this.isGroupAlertPlaying = false;
+    if (this.groupAlertInterval) { clearInterval(this.groupAlertInterval); this.groupAlertInterval = null; }
+    if (this.groupHapticInterval) { clearInterval(this.groupHapticInterval); this.groupHapticInterval = null; }
+    if (this.groupAlertTimeout) { clearTimeout(this.groupAlertTimeout); this.groupAlertTimeout = null; }
   }
 
   // Vibration feedback

@@ -13,6 +13,7 @@ import {
   Navigation,
   Battery,
   MapPin,
+  Bluetooth,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { FamilyMember, LanguageCode } from '../types';
@@ -31,6 +32,8 @@ interface Props {
   isOffline: boolean;
   lang: LanguageCode;
   myDeviceId: string;
+  bleActive?: boolean;
+  bleDistance?: number;
   showDemoSimulator?: boolean;
   onBack: () => void;
   onUpdateMyHeading: (heading: number) => void;
@@ -45,6 +48,8 @@ export const ArrowScreen: React.FC<Props> = ({
   isOffline,
   lang,
   myDeviceId,
+  bleActive = false,
+  bleDistance,
   showDemoSimulator = false,
   onBack,
   onUpdateMyHeading,
@@ -133,9 +138,18 @@ export const ArrowScreen: React.FC<Props> = ({
             <h2 className="headline-md text-lg sm:text-xl text-[#0D2119] truncate">
               Tracking {member.name}
             </h2>
-            <div className="label-sm text-[#006D36] font-medium flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#4ADE80] shrink-0" />
-              <span>Live Lock</span>
+            <div className="label-sm font-medium flex items-center gap-1.5">
+              {bleActive ? (
+                <div className="flex items-center gap-1 text-[#2563EB]">
+                  <Bluetooth className="w-3.5 h-3.5 animate-pulse text-[#2563EB]" />
+                  <span className="font-bold">GPS+BLE Fusion</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-[#006D36]">
+                  <span className="w-2 h-2 rounded-full bg-[#4ADE80] shrink-0" />
+                  <span>Live Lock</span>
+                </div>
+              )}
               <span className="text-[#CBD5E1]">•</span>
               <span className="font-mono text-[#166534] font-bold">🔋 {member.battery ?? 90}%</span>
             </div>
@@ -184,6 +198,19 @@ export const ArrowScreen: React.FC<Props> = ({
         </div>
       </header>
 
+      {/* BLE Fusion Active Banner */}
+      {bleActive && (
+        <div className="bg-[#EFF6FF] text-[#1E40AF] border-b border-[#BFDBFE] px-4 py-2 text-xs font-semibold flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <Bluetooth className="w-4 h-4 text-[#2563EB] animate-bounce" />
+            <span>High-Precision BLE + GPS Active (≤30m)</span>
+          </div>
+          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#DBEAFE] font-bold text-[#1D4ED8]">
+            {bleDistance !== undefined ? `~${bleDistance}m BLE` : 'SCANNING'}
+          </span>
+        </div>
+      )}
+
       {/* Offline Amber Banner (if disconnected) */}
       {isOffline && (
         <div className="bg-[#FEF3C7] text-[#92400E] border-b border-[#FDE68A] px-4 py-2 text-xs font-semibold flex items-center justify-between shrink-0">
@@ -204,6 +231,14 @@ export const ArrowScreen: React.FC<Props> = ({
           <div className="absolute inset-6 border border-[#E2E8F0] rounded-full pointer-events-none" />
           <div className="absolute inset-12 border border-[#CBD5E1] rounded-full pointer-events-none" />
 
+          {/* If BLE Active: Concentric Blue Pulsing Rings */}
+          {bleActive && (
+            <>
+              <div className="absolute inset-2 border-2 border-[#3B82F6]/40 rounded-full animate-ping pointer-events-none" />
+              <div className="absolute inset-8 border border-[#2563EB]/50 rounded-full pointer-events-none" />
+            </>
+          )}
+
           {/* Central White Disc Surface */}
           <div className="w-[210px] h-[210px] sm:w-[240px] sm:h-[240px] rounded-full bg-white border border-[#E2E8F0] shadow-sm flex items-center justify-center relative overflow-hidden">
             {/* Cardinal Markers */}
@@ -212,7 +247,7 @@ export const ArrowScreen: React.FC<Props> = ({
             <span className="absolute right-2 text-[10px] font-bold text-[#94A3B8]">E</span>
             <span className="absolute left-2 text-[10px] font-bold text-[#94A3B8]">W</span>
 
-            {/* Smoothly Rotating Bold Green Arrow (Rounded Tip & Base) */}
+            {/* Smoothly Rotating Bold Arrow (Green for GPS, Blue tint for BLE Fusion) */}
             <motion.div
               style={{
                 transform: `rotate(${smoothAngle}deg)`,
@@ -223,7 +258,9 @@ export const ArrowScreen: React.FC<Props> = ({
               <div className="w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center">
                 <svg
                   viewBox="0 0 100 100"
-                  className="w-full h-full text-[#4ADE80] drop-shadow-sm"
+                  className={`w-full h-full drop-shadow-sm transition-colors ${
+                    bleActive ? 'text-[#2563EB]' : 'text-[#4ADE80]'
+                  }`}
                   fill="currentColor"
                 >
                   {/* Rounded bold arrow shape */}
@@ -236,15 +273,24 @@ export const ArrowScreen: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Directly Below: distance-display large number (48px/800) */}
+        {/* Directly Below: distance-display large number */}
         <div className="mt-5 text-center">
-          <div className="font-distance-display text-[#0D2119] tracking-tight">
-            {distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`}
+          <div className="font-distance-display text-[#0D2119] tracking-tight flex items-baseline justify-center gap-1">
+            {bleActive && bleDistance !== undefined ? (
+              <>
+                <span className="text-[#2563EB]">~{bleDistance} m</span>
+                <span className="text-xs font-mono font-bold text-[#2563EB] bg-[#EFF6FF] px-1.5 py-0.5 rounded border border-[#BFDBFE]">BLE</span>
+              </>
+            ) : (
+              <span>{distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`}</span>
+            )}
           </div>
 
-          {/* Below that: body-md muted directional hint */}
+          {/* Below that: body-md directional or proximity hint */}
           <div className="body-md text-[#5C7168] mt-1 font-medium">
-            {directionAdvice}
+            {bleActive && bleDistance !== undefined && bleDistance < 5
+              ? "🔵 You're right next to them — look around!"
+              : directionAdvice}
           </div>
         </div>
       </div>

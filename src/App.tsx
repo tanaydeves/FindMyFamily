@@ -26,7 +26,9 @@ import { relayClient } from './services/relayClient';
 import { batteryService } from './services/batteryService';
 import { audioHaptics } from './services/audioHaptics';
 import { ParsedSms, SmsService } from './services/smsService';
-import { Compass, Users } from 'lucide-react';
+import { bleProximityService } from './services/bleProximityService';
+import { calculateDistance } from './services/navigationMath';
+import { Compass, Users, AlertTriangle, BellOff, Navigation } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { NativeSync } from './services/nativeSync';
 
@@ -138,6 +140,11 @@ export default function App() {
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const [isServerConnected, setIsServerConnected] = useState<boolean>(() => relayClient.isConnected());
 
+  // BLE Fusion Mode — activates at <=30m to complement GPS precision
+  const BLE_FUSION_THRESHOLD = 30; // meters
+  const [bleActive, setBleActive] = useState(false);
+  const [bleDistances, setBleDistances] = useState<Map<string, number>>(new Map());
+
   // Listen to live device battery changes
   useEffect(() => {
     const unsub = batteryService.subscribe((status) => {
@@ -162,6 +169,42 @@ export default function App() {
         }
       }
     } catch {}
+  }, []);
+
+  // BLE Fusion: auto-activate when GPS distance to tracked member drops to <=30m.
+  // GPS keeps running for direction; BLE adds precise proximity. +10m hysteresis on exit.
+  useEffect(() => {
+    if (!selectedMember) {
+      if (bleActive) {
+        setBleActive(false);
+        setBleDistances(new Map());
+        bleProximityService.stopTracking();
+      }
+      return;
+    }
+
+    const gpsDist = calculateDistance(
+      myLocation.latitude, myLocation.longitude,
+      selectedMember.lastLat, selectedMember.lastLng
+    );
+
+    if (gpsDist <= BLE_FUSION_THRESHOLD && !bleActive && bleProximityService.isSupported()) {
+      setBleActive(true);
+      bleProximityService.startTracking(myDeviceId, [selectedMember.id]);
+      bleProximityService.onProximityUpdate(({ deviceId, distanceMeters }) => {
+        setBleDistances((prev) => new Map(prev).set(deviceId, distanceMeters));
+      });
+    } else if (gpsDist > BLE_FUSION_THRESHOLD + 10 && bleActive) {
+      // Hysteresis: only turn off BLE when >=40m away to avoid mode flipping
+      setBleActive(false);
+      setBleDistances(new Map());
+      bleProximityService.stopTracking();
+    }
+  }, [selectedMember?.lastLat, selectedMember?.lastLng, myLocation.latitude, myLocation.longitude]);
+
+  // Clean up BLE when component unmounts
+  useEffect(() => {
+    return () => { bleProximityService.stopTracking(); };
   }, []);
 
   // Initialize and Sync with Relay Multi-Device Hub
@@ -279,7 +322,8 @@ export default function App() {
 
     const unsubscribeDistress = relayClient.onDistressAlert((alert: DistressAlert) => {
       if (alert.senderId === myDeviceId) return;
-      audioHaptics.startDistressSiren();
+      // Use the louder, repeating group alert (not the personal self-siren)
+      audioHaptics.startGroupDistressAlert();
       setIncomingDistress(alert);
 
       setPairedMembers((prev) => {
@@ -559,7 +603,7 @@ export default function App() {
 
   const handleReceiveParsedSms = (sms: ParsedSms) => {
     if (sms.isDistress) {
-      audioHaptics.startDistressSiren();
+      audioHaptics.startGroupDistressAlert();
       setIncomingDistress({
         senderId: sms.deviceId,
         senderName: sms.name,
@@ -698,6 +742,8 @@ export default function App() {
                   myDeviceName={myDeviceName}
                   compassHeading={compassHeading}
                   pairedMembers={pairedMembers}
+                  bleActive={bleActive}
+                  bleDistances={bleDistances}
                   onBack={() => setShowRadar(false)}
                   onSelectMember={(member) => {
                     setSelectedMember(member);
@@ -723,7 +769,7 @@ export default function App() {
                 onOpenAddMember={() => setAddMemberOpen(true)}
                 onRemoveMember={handleRemoveMember}
                 onDismissDistress={() => {
-                  audioHaptics.stopDistressSiren();
+                  audioHaptics.stopGroupDistressAlert();
                   setIncomingDistress(null);
                 }}
               />
@@ -754,6 +800,8 @@ export default function App() {
                   isOffline={isOffline}
                   lang={lang}
                   myDeviceId={myDeviceId}
+                  bleActive={bleActive}
+                  bleDistance={bleDistances.get(selectedMember.id)}
                   onBack={() => setCurrentTab('family')}
                   onUpdateMyHeading={(h) => setCompassHeading(h)}
                   onSimulateStep={handleSimulateStep}
@@ -927,6 +975,105 @@ export default function App() {
             mode={helpModalMode}
           />
         </Suspense>
+      )}
+
+      {/* Group Distress Urgent Full-Screen Banner Overlay */}
+      {incomingDistress && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col justify-end p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border-2 border-[#DC2626] overflow-hidden">
+            {/* Flashing Top Alert Bar */}
+            <div className="bg-[#DC2626] text-white px-5 py-4 flex items-center justify-between animate-pulse">
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle className="w-6 h-6 stroke-[2.5]" />
+                <span className="font-extrabold text-sm tracking-wider uppercase">
+                  Emergency Distress Alert!
+                </span>
+              </div>
+              <span className="text-xs font-mono font-bold bg-white/20 px-2 py-0.5 rounded">
+                CRITICAL
+              </span>
+            </div>
+
+            <div className="p-5 text-center space-y-3">
+              <div className="w-16 h-16 rounded-full bg-[#FEE2E2] text-[#DC2626] mx-auto flex items-center justify-center animate-bounce shadow-inner">
+                <AlertTriangle className="w-8 h-8 stroke-[2.5]" />
+              </div>
+
+              <div>
+                <h3 className="headline-md text-xl font-bold text-[#0D2119]">
+                  {incomingDistress.senderName || 'Family Member'} is Lost!
+                </h3>
+                <p className="body-md text-sm text-[#5C7168] mt-1">
+                  Sent a distress SOS to the group circle. Phone is beeping and vibrating.
+                </p>
+                {myLocation && incomingDistress.latitude && (
+                  <div className="inline-block mt-2 font-mono text-sm font-bold text-[#DC2626] bg-[#FEF2F2] px-3 py-1 rounded-full border border-[#FECACA]">
+                    ~{calculateDistance(
+                      myLocation.latitude,
+                      myLocation.longitude,
+                      incomingDistress.latitude,
+                      incomingDistress.longitude
+                    )}m away from you
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={() => {
+                    const matched = pairedMembers.find((m) => m.id === incomingDistress.senderId);
+                    if (matched) {
+                      setSelectedMember(matched);
+                    } else {
+                      setSelectedMember({
+                        id: incomingDistress.senderId,
+                        name: incomingDistress.senderName || 'Family Member',
+                        lastLat: incomingDistress.latitude,
+                        lastLng: incomingDistress.longitude,
+                        lastUpdated: incomingDistress.timestamp,
+                        source: 'relay',
+                        color: '#DC2626',
+                      });
+                    }
+                    audioHaptics.stopGroupDistressAlert();
+                    setCurrentTab('track');
+                    setShowRadar(false);
+                  }}
+                  className="w-full h-13 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] active:scale-[0.98] text-white font-bold flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                >
+                  <Navigation className="w-5 h-5" />
+                  <span>Track {incomingDistress.senderName?.split(' ')[0] || 'Member'} (Arrow + BLE)</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      const matched = pairedMembers.find((m) => m.id === incomingDistress.senderId);
+                      if (matched) setSelectedMember(matched);
+                      audioHaptics.stopGroupDistressAlert();
+                      setCurrentTab('map');
+                      setShowRadar(false);
+                    }}
+                    className="py-2.5 rounded-xl bg-[#F8FAF9] hover:bg-[#E2E8F0] border border-[#E2E8F0] text-sm font-semibold text-[#0D2119] flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Show on Map</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      audioHaptics.stopGroupDistressAlert();
+                      setIncomingDistress(null);
+                    }}
+                    className="py-2.5 rounded-xl bg-[#F8FAF9] hover:bg-[#E2E8F0] border border-[#E2E8F0] text-sm font-semibold text-[#5C7168] flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <BellOff className="w-4 h-4" />
+                    <span>Dismiss Siren</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -10,6 +10,8 @@ interface Props {
   myDeviceName: string;
   compassHeading: number;
   pairedMembers: FamilyMember[];
+  bleActive?: boolean;
+  bleDistances?: Map<string, number>;
   onBack: () => void;
   onSelectMember: (member: FamilyMember) => void;
 }
@@ -18,6 +20,8 @@ export const RadarScreen: React.FC<Props> = ({
   myLocation,
   compassHeading,
   pairedMembers,
+  bleActive = false,
+  bleDistances,
   onBack,
   onSelectMember,
 }) => {
@@ -117,6 +121,9 @@ export const RadarScreen: React.FC<Props> = ({
             const x = rPx * Math.cos(angleRad);
             const y = rPx * Math.sin(angleRad);
 
+            const isBleRange = dist <= 30 || (bleDistances && bleDistances.has(member.id));
+            const memberBleDist = bleDistances?.get(member.id);
+
             return (
               <motion.button
                 key={member.id}
@@ -129,14 +136,23 @@ export const RadarScreen: React.FC<Props> = ({
                 }}
                 className="absolute z-20 flex flex-col items-center cursor-pointer"
               >
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-[#0D2119] ring-2 ring-white shadow-sm"
-                  style={{ backgroundColor: member.color || '#38BDF8' }}
-                >
-                  {member.name.charAt(0).toUpperCase()}
+                <div className="relative flex items-center justify-center">
+                  {isBleRange && (
+                    <span className="absolute -inset-1 rounded-full border-2 border-[#2563EB] animate-ping pointer-events-none opacity-75" />
+                  )}
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-[#0D2119] ring-2 ring-white shadow-sm"
+                    style={{ backgroundColor: member.color || '#38BDF8' }}
+                  >
+                    {member.name.charAt(0).toUpperCase()}
+                  </div>
                 </div>
-                <span className="text-[10px] font-bold text-[#0D2119] bg-white px-1.5 py-0.5 rounded shadow-xs border border-[#E2E8F0] mt-0.5 whitespace-nowrap">
-                  {member.name.split(' ')[0]} ({dist}m)
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs border mt-0.5 whitespace-nowrap ${
+                  isBleRange
+                    ? 'bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]'
+                    : 'bg-white text-[#0D2119] border-[#E2E8F0]'
+                }`}>
+                  {member.name.split(' ')[0]} ({memberBleDist !== undefined ? `~${memberBleDist}m BLE` : `${dist}m`})
                 </span>
               </motion.button>
             );

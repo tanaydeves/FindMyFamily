@@ -7,3 +7,5 @@ coverage/
 *.tmp
 .env*
 !.env.example
+*.idsig
+*.jar
