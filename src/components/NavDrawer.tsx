@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Radio,
   Share2,
+  ExternalLink,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LanguageCode } from '../types';
@@ -341,6 +342,18 @@ export const NavDrawer: React.FC<Props> = ({
                 <HelpCircle className="w-4 h-4 text-[#5C7168]" />
                 <span>Help & Safety Info</span>
               </button>
+
+              <a
+                href="/dashboard"
+                onClick={() => onClose()}
+                className="w-full min-h-[48px] px-3 py-2 rounded-xl bg-[#DCFCE7] hover:bg-[#BBF7D0] flex items-center justify-between text-xs font-bold text-[#166534] transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <span>🛡️</span>
+                  <span>Volunteer & Police Dashboard</span>
+                </div>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
             </div>
           </motion.div>
         </div>

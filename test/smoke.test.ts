@@ -338,4 +338,197 @@ describe('Backend Server Hub Integration', () => {
 
     socket.disconnect();
   });
+
+  describe('QR-Tag Lost Child Recovery System (Part 8 Task List)', () => {
+    let testQrId = '';
+
+  it('1. retrieves volunteer centers list (data-driven)', async () => {
+    const res = await fetch(`${SERVER_URL}/api/volunteer-centers`);
+    assert.equal(res.status, 200);
+    const centers = await res.json();
+    assert.ok(Array.isArray(centers));
+    assert.ok(centers.length > 0);
+    assert.ok(centers.some((c: any) => c.center_id === 'center-sangam'));
+  });
+
+  it('2. generates batch unassigned QR tags for volunteer desk stock', async () => {
+    const res = await fetch(`${SERVER_URL}/api/qr-tags/generate-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ count: 2, prefix: 'QR-TEST' }),
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.success, true);
+    assert.equal(data.tags.length, 2);
+    testQrId = data.tags[0].qr_id;
+    assert.ok(testQrId.startsWith('QR-TEST-'));
+  });
+
+  it('3. checks public tag status for UNASSIGNED state', async () => {
+    const res = await fetch(`${SERVER_URL}/api/lost/${testQrId}`);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.status, 'unassigned');
+    assert.equal(data.qr_id, testQrId);
+    assert.ok(data.volunteerCenters && data.volunteerCenters.length > 0);
+    assert.ok(data.message.includes('nearest volunteer center'));
+  });
+
+  it('4. rejects child linking when mandatory fields are missing', async () => {
+    const res = await fetch(`${SERVER_URL}/api/children/link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ qr_id: testQrId, mother_name: 'Pooja' }), // missing father_name and contact_number_primary
+    });
+    assert.equal(res.status, 400);
+  });
+
+  it('5. links child profile and transitions QR status to ASSIGNED', async () => {
+    const linkPayload = {
+      qr_id: testQrId,
+      child_name: 'Aarav Sharma',
+      mother_name: 'Pooja Sharma',
+      father_name: 'Rohit Sharma',
+      photo_url: 'https://images.unsplash.com/photo-1543332164-6e82f355badc?w=300',
+      contact_number_primary: '+919876543210',
+      contact_number_secondary: '+919876543211',
+      language_pref: 'hi',
+      created_by_user_id: 'test_parent_device_1',
+    };
+
+    const res = await fetch(`${SERVER_URL}/api/children/link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(linkPayload),
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.success, true);
+    assert.equal(data.child.qr_id, testQrId);
+    assert.equal(data.child.child_name, 'Aarav Sharma');
+  });
+
+  it('6. rejects re-linking an already ASSIGNED QR tag (state machine guard)', async () => {
+    const duplicatePayload = {
+      qr_id: testQrId,
+      child_name: 'Another Child',
+      mother_name: 'Meena',
+      father_name: 'Raj',
+      contact_number_primary: '+919111122222',
+      language_pref: 'en',
+    };
+
+    const res = await fetch(`${SERVER_URL}/api/children/link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(duplicatePayload),
+    });
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.ok(data.error.includes('already in use'));
+  });
+
+  it('7. checks public tag status for ASSIGNED state (protects parent privacy)', async () => {
+    const res = await fetch(`${SERVER_URL}/api/lost/${testQrId}`);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.status, 'assigned');
+    assert.equal(data.child.child_name, 'Aarav Sharma');
+    assert.ok(data.child.photo_url);
+    // Crucial privacy check: parent phone number MUST NOT be exposed on public web endpoint
+    assert.equal((data.child as any).contact_number_primary, undefined);
+    assert.equal((data.child as any).contact_number_secondary, undefined);
+  });
+
+  it('8. submits bystander "Mark as Lost" report and triggers alert', async () => {
+    const alertPayload = {
+      qr_id: testQrId,
+      finder_lat: 25.4380,
+      finder_lng: 81.8620,
+      finder_landmark_note: 'Sector 4 Administrative Center - Near Gate 3',
+      finder_contact_optional: '+919998887776',
+    };
+
+    const res = await fetch(`${SERVER_URL}/api/lost-alerts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'IntegrationTestBrowser/1.0',
+      },
+      body: JSON.stringify(alertPayload),
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.success, true);
+    assert.equal(data.alert.qr_id, testQrId);
+    assert.equal(data.alert.status, 'open');
+    assert.equal(data.alert.finder_contact_optional, '+919998887776');
+  });
+
+  it('9. enforces anti-misuse safeguard against duplicate reports for same QR', async () => {
+    const duplicateAlert = {
+      qr_id: testQrId,
+      finder_landmark_note: 'Spam report attempt',
+    };
+
+    const res = await fetch(`${SERVER_URL}/api/lost-alerts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(duplicateAlert),
+    });
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.ok(data.error.includes('already in progress'));
+  });
+
+  it('10. checks public tag status for LOST_FLAGGED state', async () => {
+    const res = await fetch(`${SERVER_URL}/api/lost/${testQrId}`);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.status, 'lost_flagged');
+    assert.ok(data.message.includes('already been reported'));
+    assert.ok(data.activeAlert);
+  });
+
+  it('11. manages alerts feed, acknowledge, and resolve on Dashboard', async () => {
+    // 1. Fetch dashboard alerts
+    const listRes = await fetch(`${SERVER_URL}/api/dashboard/alerts?role=police`);
+    assert.equal(listRes.status, 200);
+    const alerts = await listRes.json();
+    const myAlert = alerts.find((a: any) => a.qr_id === testQrId);
+    assert.ok(myAlert, 'Created alert must be present in dashboard feed');
+    assert.equal(myAlert.status, 'open');
+
+    // 2. Acknowledge alert
+    const ackRes = await fetch(`${SERVER_URL}/api/dashboard/alerts/${myAlert.alert_id}/acknowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: 'volunteer_sector4' }),
+    });
+    assert.equal(ackRes.status, 200);
+    const ackData = await ackRes.json();
+    assert.equal(ackData.alert.status, 'acknowledged');
+
+    // 3. Resolve alert with reunion confirmation
+    const resolveRes = await fetch(`${SERVER_URL}/api/dashboard/alerts/${myAlert.alert_id}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: 'police_officer_raj' }),
+    });
+    assert.equal(resolveRes.status, 200);
+    const resolveData = await resolveRes.json();
+    assert.equal(resolveData.alert.status, 'resolved');
+    // Policy verification: Tag is cascade retired
+    assert.equal(resolveData.tag.status, 'retired');
+
+    // 4. Verify tag is now retired on status endpoint
+    const finalTagRes = await fetch(`${SERVER_URL}/api/lost/${testQrId}`);
+    assert.equal(finalTagRes.status, 200);
+    const finalTagData = await finalTagRes.json();
+    assert.equal(finalTagData.status, 'retired');
+  });
+  });
 });
+
+

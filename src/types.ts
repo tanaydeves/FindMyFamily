@@ -65,3 +65,68 @@ export interface CircleInfo {
   membersCount: number;
   connectedCount: number;
 }
+
+// QR-Tag Lost Child Recovery Types
+export type QrStatus = 'unassigned' | 'assigned' | 'lost_flagged' | 'resolved' | 'retired';
+export type AlertStatus = 'open' | 'acknowledged' | 'resolved';
+export type DashboardRole = 'volunteer' | 'police';
+
+export interface QrTag {
+  qr_id: string;
+  status: QrStatus;
+  printed_at: string;
+  assigned_at?: string | null;
+  retired_at?: string | null;
+  volunteer_center_id?: string | null;
+}
+
+export interface ChildProfile {
+  child_id: string;
+  qr_id: string;
+  child_name?: string;
+  mother_name: string;
+  father_name: string;
+  photo_url: string;
+  contact_number_primary: string;
+  contact_number_secondary?: string | null;
+  language_pref: LanguageCode;
+  created_by_user_id: string;
+  created_at: string;
+  // Offline sync status
+  isPendingSync?: boolean;
+}
+
+export interface LostAlert {
+  alert_id: string;
+  qr_id: string;
+  reported_at: string;
+  finder_lat?: number | null;
+  finder_lng?: number | null;
+  finder_landmark_note?: string | null;
+  finder_contact_optional?: string | null;
+  sms_sent_at?: string | null;
+  dashboard_alerted_at?: string | null;
+  status: AlertStatus;
+  resolved_by_user_id?: string | null;
+  resolved_at?: string | null;
+  finder_ip?: string | null;
+  finder_user_agent?: string | null;
+  // Attached relations
+  child?: {
+    child_id: string;
+    child_name?: string;
+    mother_name: string;
+    father_name: string;
+    photo_url: string;
+    contact_number_primary?: string;
+    contact_number_secondary?: string | null;
+  };
+  center?: VolunteerCenter | null;
+}
+
+export interface VolunteerCenter {
+  center_id: string;
+  name: string;
+  location_lat: number;
+  location_lng: number;
+}

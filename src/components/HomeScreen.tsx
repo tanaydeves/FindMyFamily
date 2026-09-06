@@ -14,9 +14,13 @@ import {
   BatteryMedium,
   BatteryLow,
   MapPin,
+  Heart,
+  ShieldCheck,
+  Clock,
+  ExternalLink,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { FamilyMember, DistressAlert } from '../types';
+import { FamilyMember, DistressAlert, ChildProfile } from '../types';
 import { calculateDistance, calculateBearing } from '../services/navigationMath';
 
 interface Props {
@@ -24,9 +28,11 @@ interface Props {
   pairedMembers: FamilyMember[];
   incomingDistress: DistressAlert | null;
   isOffline: boolean;
+  registeredKids?: ChildProfile[];
   onSelectMember: (member: FamilyMember) => void;
   onOpenMap?: (member?: FamilyMember) => void;
   onOpenAddMember: () => void;
+  onOpenAddKid?: () => void;
   onRemoveMember?: (memberId: string) => void;
   onDismissDistress: () => void;
 }
@@ -36,9 +42,11 @@ export const HomeScreen: React.FC<Props> = ({
   pairedMembers,
   incomingDistress,
   isOffline,
+  registeredKids = [],
   onSelectMember,
   onOpenMap,
   onOpenAddMember,
+  onOpenAddKid,
   onRemoveMember,
   onDismissDistress,
 }) => {
@@ -130,6 +138,73 @@ export const HomeScreen: React.FC<Props> = ({
           </p>
         </div>
 
+        {/* Protected Children (QR-Tags) Section */}
+        {registeredKids.length > 0 && (
+          <div className="space-y-2 mb-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#5C7168] flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
+                <span>Protected Children (QR-Tags)</span>
+              </span>
+              {onOpenAddKid && (
+                <button
+                  onClick={onOpenAddKid}
+                  className="text-xs font-bold text-[#1B4332] hover:underline cursor-pointer"
+                >
+                  + Add Kid
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-2.5">
+              {registeredKids.map((kid) => (
+                <div
+                  key={kid.qr_id}
+                  className="p-3.5 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-between shadow-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={kid.photo_url}
+                      alt={kid.child_name}
+                      className="w-11 h-11 rounded-full object-cover border-2 border-[#BBF7D0] shadow-2xs"
+                    />
+                    <div>
+                      <h4 className="body-md font-bold text-[#0D2119]">
+                        {kid.child_name || `${kid.mother_name}'s child`}
+                      </h4>
+                      <p className="text-[11px] font-mono text-[#5C7168]">
+                        Tag: <span className="font-bold text-[#1B4332]">{kid.qr_id}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {kid.isPendingSync ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] flex items-center gap-1">
+                        <Clock className="w-3 h-3 animate-spin" />
+                        <span>Pending sync</span>
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0]">
+                        Active
+                      </span>
+                    )}
+                    <a
+                      href={`/lost/${kid.qr_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 rounded-lg text-[#94A3B8] hover:text-[#1B4332] hover:bg-[#F1F5F9]"
+                      title="View Public QR Page"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* List of Member Cards (Level-1 Elevation) */}
         {pairedMembers.length === 0 ? (
           <div className="p-8 text-center bg-white rounded-xl border border-[#E2E8F0] my-4 shadow-xs">
@@ -140,6 +215,18 @@ export const HomeScreen: React.FC<Props> = ({
             <p className="body-md text-sm text-[#5C7168] max-w-sm mx-auto mb-5 leading-relaxed">
               Pair your family's phones before entering the crowd to track their direction and distance in real-time.
             </p>
+            {onOpenAddKid && (
+              <div className="mb-3">
+                <button
+                  id="btn-add-kid-empty"
+                  onClick={onOpenAddKid}
+                  className="px-6 h-12 rounded-lg bg-white border-2 border-[#1B4332] text-[#1B4332] hover:bg-[#F1F5F3] label-lg font-bold shadow-xs active:scale-[0.98] transition-all cursor-pointer inline-flex items-center gap-2"
+                >
+                  <Heart className="w-4 h-4 fill-[#16A34A] text-[#16A34A]" />
+                  <span>Add Kid (QR Sticker)</span>
+                </button>
+              </div>
+            )}
             <button
               onClick={onOpenAddMember}
               className="px-6 h-12 rounded-lg bg-[#1B4332] hover:bg-[#012D1D] text-white label-lg font-bold shadow-xs active:scale-[0.98] transition-all cursor-pointer inline-flex items-center gap-2"
@@ -295,6 +382,20 @@ export const HomeScreen: React.FC<Props> = ({
           </div>
         )}
       </div>
+
+      {/* "Add Kid" button placed directly ABOVE the existing "Add Family Member" button */}
+      {onOpenAddKid && (
+        <button
+          id="btn-add-kid"
+          onClick={onOpenAddKid}
+          className="absolute bottom-22 right-6 h-12 px-4 rounded-full bg-white border border-[#CBD5E1] hover:border-[#1B4332] text-[#1B4332] font-bold text-xs shadow-lg flex items-center gap-2 z-30 cursor-pointer active:scale-95 transition-all"
+          title="Add Kid (QR Sticker)"
+          aria-label="Add Kid"
+        >
+          <Heart className="w-4 h-4 text-[#16A34A] fill-[#16A34A]" />
+          <span>Add Kid</span>
+        </button>
+      )}
 
       {/* Floating Action Button (FAB) (56px, #1B4332 filled, white "+") */}
       <button

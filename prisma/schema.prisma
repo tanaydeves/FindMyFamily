@@ -1,0 +1,97 @@
+// Find My Family - QR-Tag Lost Child Recovery Prisma Schema
+// Target database: PostgreSQL (Supabase pooled connection)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum QrStatus {
+  unassigned
+  assigned
+  lost_flagged
+  resolved
+  retired
+}
+
+enum LanguagePref {
+  en
+  hi
+  mr
+}
+
+enum AlertStatus {
+  open
+  acknowledged
+  resolved
+}
+
+model qr_tags {
+  qr_id                String             @id
+  status               QrStatus           @default(unassigned)
+  printed_at           DateTime           @default(now())
+  assigned_at          DateTime?
+  retired_at           DateTime?
+  volunteer_center_id  String?
+  
+  volunteer_center     volunteer_centers? @relation(fields: [volunteer_center_id], references: [center_id])
+  child_profile        child_profiles?
+  lost_alerts          lost_alerts[]
+
+  @@map("qr_tags")
+}
+
+model child_profiles {
+  child_id                 String       @id @default(uuid())
+  qr_id                    String       @unique
+  mother_name              String
+  father_name              String
+  photo_url                String
+  contact_number_primary   String
+  contact_number_secondary String?
+  language_pref            LanguagePref @default(en)
+  created_by_user_id       String
+  created_at               DateTime     @default(now())
+
+  qr_tag                   qr_tags      @relation(fields: [qr_id], references: [qr_id], onDelete: Cascade)
+
+  @@map("child_profiles")
+}
+
+model lost_alerts {
+  alert_id                 String       @id @default(uuid())
+  qr_id                    String
+  reported_at              DateTime     @default(now())
+  finder_lat               Float?
+  finder_lng               Float?
+  finder_landmark_note     String?
+  finder_contact_optional  String?
+  sms_sent_at              DateTime?
+  dashboard_alerted_at     DateTime?
+  status                   AlertStatus  @default(open)
+  resolved_by_user_id      String?
+  resolved_at              DateTime?
+
+  // Anti-misuse and audit log fields
+  finder_ip                String?
+  finder_user_agent        String?
+
+  qr_tag                   qr_tags      @relation(fields: [qr_id], references: [qr_id], onDelete: Cascade)
+
+  @@map("lost_alerts")
+}
+
+model volunteer_centers {
+  center_id    String    @id @default(uuid())
+  name         String
+  location_lat Float
+  location_lng Float
+
+  qr_tags      qr_tags[]
+
+  @@map("volunteer_centers")
+}

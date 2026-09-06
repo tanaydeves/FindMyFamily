@@ -4,6 +4,7 @@ import path from 'path';
 import cors from 'cors';
 import { Server } from 'socket.io';
 import { createServer as createViteServer } from 'vite';
+import { dbRepository } from './src/server/db';
 
 interface LocationData {
   deviceId: string;
@@ -259,6 +260,272 @@ async function startServer() {
       deliveredToCircle: normCircle,
       alert: alertPayload,
     });
+  });
+
+  // ============================================================
+  // QR-TAG LOST CHILD RECOVERY ENDPOINTS (PART 8 - ITEM 2)
+  // ============================================================
+
+  // 1. Get Volunteer Centers (Data-driven for landmark dropdown & directions)
+  app.get(['/api/volunteer-centers', '/volunteer-centers'], async (_req, res) => {
+    try {
+      const centers = await dbRepository.getVolunteerCenters();
+      res.json(centers);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to get volunteer centers' });
+    }
+  });
+
+  // 2. Link Child Profile (Part 4 Steps 4-6)
+  app.post(['/api/children/link', '/children/link'], async (req, res) => {
+    const {
+      qr_id,
+      child_name,
+      mother_name,
+      father_name,
+      photo_url,
+      contact_number_primary,
+      contact_number_secondary,
+      language_pref = 'en',
+      created_by_user_id = 'parent_device',
+    } = req.body;
+
+    if (!qr_id || !mother_name || !father_name || !contact_number_primary) {
+      return res.status(400).json({
+        error: 'qr_id, mother_name, father_name, and contact_number_primary are required.',
+      });
+    }
+
+    try {
+      const result = await dbRepository.linkChildProfile({
+        qr_id,
+        child_name,
+        mother_name,
+        father_name,
+        photo_url: photo_url || 'https://images.unsplash.com/photo-1543332164-6e82f355badc?w=300&auto=format&fit=crop&q=80',
+        contact_number_primary,
+        contact_number_secondary,
+        language_pref,
+        created_by_user_id,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      return res.json({ success: true, child: result.child });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Internal server error linking child.' });
+    }
+  });
+
+  // 3. Public Bystander Tag Status Endpoint (Part 5)
+  app.get(['/api/lost/:qr_id', '/lost-status/:qr_id'], async (req, res) => {
+    const { qr_id } = req.params;
+    try {
+      const tag = await dbRepository.getQrTag(qr_id);
+      const volunteerCenters = await dbRepository.getVolunteerCenters();
+
+      if (!tag) {
+        return res.status(404).json({
+          error: 'QR tag not found in system. Please verify the tag ID or consult a volunteer desk.',
+          status: 'unknown',
+          volunteerCenters,
+        });
+      }
+
+      if (tag.status === 'unassigned') {
+        return res.json({
+          status: 'unassigned',
+          qr_id,
+          volunteerCenters,
+          message: 'This tag isn’t linked to a child yet. Please take the child to the nearest volunteer center.',
+        });
+      }
+
+      const child = await dbRepository.getChildByQrId(qr_id);
+
+      if (tag.status === 'assigned') {
+        // Return child details WITHOUT parent phone numbers (privacy protection!)
+        return res.json({
+          status: 'assigned',
+          qr_id,
+          child: child
+            ? {
+                child_id: child.child_id,
+                child_name: child.child_name,
+                mother_name: child.mother_name,
+                father_name: child.father_name,
+                photo_url: child.photo_url,
+              }
+            : null,
+          volunteerCenters,
+        });
+      }
+
+      if (tag.status === 'lost_flagged') {
+        const activeAlert = await dbRepository.getActiveAlertForQr(qr_id);
+        return res.json({
+          status: 'lost_flagged',
+          qr_id,
+          child: child
+            ? {
+                child_id: child.child_id,
+                child_name: child.child_name,
+                photo_url: child.photo_url,
+              }
+            : null,
+          activeAlert: activeAlert
+            ? {
+                alert_id: activeAlert.alert_id,
+                reported_at: activeAlert.reported_at,
+                status: activeAlert.status,
+              }
+            : null,
+          volunteerCenters,
+          message: 'This has already been reported. Help is on the way — please stay with the child if possible.',
+        });
+      }
+
+      return res.json({
+        status: tag.status,
+        qr_id,
+        volunteerCenters,
+        message: 'This case has been resolved and closed.',
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Server error checking tag.' });
+    }
+  });
+
+  // 4. Submit Lost Alert from Bystander (Part 5)
+  app.post(['/api/lost-alerts', '/lost-alerts'], async (req, res) => {
+    const { qr_id, finder_lat, finder_lng, finder_landmark_note, finder_contact_optional } = req.body;
+
+    if (!qr_id) {
+      return res.status(400).json({ error: 'qr_id is required' });
+    }
+
+    try {
+      const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+      const userAgent = req.headers['user-agent'] || 'Unknown';
+
+      const result = await dbRepository.createLostAlert({
+        qr_id,
+        finder_lat: finder_lat !== undefined && finder_lat !== null ? Number(finder_lat) : null,
+        finder_lng: finder_lng !== undefined && finder_lng !== null ? Number(finder_lng) : null,
+        finder_landmark_note: finder_landmark_note || null,
+        finder_contact_optional: finder_contact_optional || null,
+        finder_ip: clientIp,
+        finder_user_agent: userAgent,
+      });
+
+      if (!result.success || !result.alert) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      const alert = result.alert;
+      const child = await dbRepository.getChildByQrId(qr_id);
+
+      // 1. Send simulated SMS to child's parent contacts
+      const primaryContact = child?.contact_number_primary || 'Parent';
+      const childName = child?.child_name || 'your child';
+      const landmarkText = finder_landmark_note || 'the event grounds';
+      const smsMessage = `Find My Family Alert: A person has reported finding ${childName} near ${landmarkText}. Please head there or contact the nearest volunteer center.`;
+
+      console.log(`\n================== [URGENT SMS DISPATCH] ==================`);
+      console.log(`TO: ${primaryContact}${child?.contact_number_secondary ? `, ${child.contact_number_secondary}` : ''}`);
+      console.log(`MESSAGE: "${smsMessage}"`);
+      console.log(`TIMESTAMP: ${new Date().toISOString()}`);
+      console.log(`===========================================================\n`);
+
+      // 2. Broadcast real-time alert onto Volunteer / Police Dashboard
+      io.emit('lost_alert_created', alert);
+
+      return res.json({
+        success: true,
+        alert,
+        sms_dispatched_to: primaryContact,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Error processing lost report.' });
+    }
+  });
+
+  // 5. Dashboard alerts feed (Part 6)
+  app.get(['/api/dashboard/alerts', '/dashboard/alerts'], async (req, res) => {
+    const role = (req.query.role as string) || 'police';
+    const centerId = req.query.centerId as string | undefined;
+    const status = req.query.status as string | undefined;
+
+    try {
+      const alerts = await dbRepository.getAlerts({ role, centerId, status });
+      res.json(alerts);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to fetch dashboard alerts' });
+    }
+  });
+
+  // 6. Acknowledge Alert (Part 6)
+  app.post(['/api/dashboard/alerts/:alertId/acknowledge', '/dashboard/alerts/:alertId/acknowledge'], async (req, res) => {
+    const { alertId } = req.params;
+    const { userId = 'volunteer_staff' } = req.body;
+
+    try {
+      const updated = await dbRepository.acknowledgeAlert(alertId, userId);
+      if (!updated) {
+        return res.status(404).json({ error: 'Alert not found' });
+      }
+
+      io.emit('alert_acknowledged', { alert_id: alertId });
+      return res.json({ success: true, alert: updated });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Failed to acknowledge alert' });
+    }
+  });
+
+  // 7. Resolve Alert (Part 2 & Part 6)
+  app.post(['/api/dashboard/alerts/:alertId/resolve', '/dashboard/alerts/:alertId/resolve'], async (req, res) => {
+    const { alertId } = req.params;
+    const { userId = 'volunteer_staff' } = req.body;
+
+    try {
+      const resolved = await dbRepository.resolveAlert(alertId, userId);
+      if (!resolved) {
+        return res.status(404).json({ error: 'Alert not found' });
+      }
+
+      io.emit('alert_resolved', { alert_id: alertId, qr_id: resolved.tag.qr_id });
+      return res.json({ success: true, alert: resolved.alert, tag: resolved.tag });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Failed to resolve alert' });
+    }
+  });
+
+  // 8. Generate QR Tags Batch (Part 8 Item 2)
+  app.post(['/api/qr-tags/generate-batch', '/qr-tags/generate-batch'], async (req, res) => {
+    const count = Number(req.body.count) || 5;
+    const prefix = req.body.prefix || 'QR-KUMBH';
+    const centerId = req.body.centerId || 'center-sangam';
+
+    try {
+      const created = await dbRepository.createBatchQrTags(count, prefix, centerId);
+      res.json({ success: true, count: created.length, tags: created });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to generate batch QR tags' });
+    }
+  });
+
+  // 9. Get children for logged in device (for offline sync check & parent view)
+  app.get(['/api/children/my', '/children/my'], async (req, res) => {
+    const userId = (req.query.userId as string) || '';
+    if (!userId) return res.json([]);
+    try {
+      const children = await dbRepository.getChildrenByUserId(userId);
+      res.json(children);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to fetch children' });
+    }
   });
 
   // WebSocket Real-time Handlers

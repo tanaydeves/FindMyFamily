@@ -77,6 +77,10 @@ class RelayClient {
     return this.isConnectedState && !this.isOfflineSimulated;
   }
 
+  getSocket(): Socket | null {
+    return this.socket;
+  }
+
   init(deviceId: string, name: string, circleId = 'KUMBH-2026', color = '#4ADE80') {
     this.myDeviceId = deviceId;
     this.myDeviceName = name;

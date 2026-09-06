@@ -20,8 +20,15 @@ const ConnectionSettingsScreen = lazy(() => import('./components/ConnectionSetti
 const DistressConfirmModal = lazy(() => import('./components/DistressConfirmModal').then(m => ({ default: m.DistressConfirmModal })));
 const HelpSafetyModal = lazy(() => import('./components/HelpSafetyModal').then(m => ({ default: m.HelpSafetyModal })));
 const SmsHubModal = lazy(() => import('./components/SmsHubModal').then(m => ({ default: m.SmsHubModal })));
+const AddKidModal = lazy(() => import('./components/AddKidModal').then(m => ({ default: m.AddKidModal })));
+const BystanderLostPage = lazy(() => import('./components/BystanderLostPage').then(m => ({ default: m.BystanderLostPage })));
+const VolunteerPoliceDashboard = lazy(() => import('./components/VolunteerPoliceDashboard').then(m => ({ default: m.VolunteerPoliceDashboard })));
 
-import { FamilyMember, LanguageCode, DistressAlert, LocationData } from './types';
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+import { FamilyMember, LanguageCode, DistressAlert, LocationData, ChildProfile } from './types';
+import { lostChildService } from './services/lostChildService';
+import { offlineKidQueue } from './services/offlineKidQueue';
 import { relayClient } from './services/relayClient';
 import { batteryService } from './services/batteryService';
 import { audioHaptics } from './services/audioHaptics';
@@ -70,6 +77,27 @@ export default function App() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [helpModalMode, setHelpModalMode] = useState<'help' | 'about'>('help');
   const [showRadar, setShowRadar] = useState(false);
+
+  // QR-Tag Lost Child Recovery States
+  const [addKidOpen, setAddKidOpen] = useState(false);
+  const [registeredKids, setRegisteredKids] = useState<ChildProfile[]>([]);
+  const [activeSpecialView, setActiveSpecialView] = useState<'app' | 'bystander' | 'dashboard'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/lost/')) return 'bystander';
+      if (path === '/dashboard' || path === '/volunteer-dashboard') return 'dashboard';
+    }
+    return 'app';
+  });
+  const [bystanderQrId, setBystanderQrId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/lost/')) {
+        return path.replace('/lost/', '').trim() || 'QR-KUMBH-001';
+      }
+    }
+    return 'QR-KUMBH-001';
+  });
 
   // Persistent Device Profile & Circle Identity
   const [myDeviceId, setMyDeviceId] = useState<string>(() => {
@@ -170,6 +198,19 @@ export default function App() {
       }
     } catch {}
   }, []);
+
+  // Load registered kids & listen to offline queue changes
+  useEffect(() => {
+    async function loadKids() {
+      const kids = await lostChildService.getMyChildren(myDeviceId);
+      setRegisteredKids(kids);
+    }
+    loadKids();
+    const unsub = offlineKidQueue.subscribe(() => {
+      loadKids();
+    });
+    return unsub;
+  }, [myDeviceId]);
 
   // BLE Fusion: auto-activate when GPS distance to tracked member drops to <=30m.
   // GPS keeps running for direction; BLE adds precise proximity. +10m hysteresis on exit.
@@ -655,6 +696,35 @@ export default function App() {
     return 'Find My Family';
   };
 
+  // Special Route 1: Bystander Public Web Page (/lost/:qr_id)
+  if (activeSpecialView === 'bystander') {
+    return (
+      <Suspense fallback={<ScreenLoadingFallback />}>
+        <BystanderLostPage
+          qrId={bystanderQrId}
+          onNavigateHome={() => {
+            if (typeof window !== 'undefined') window.history.pushState({}, '', '/');
+            setActiveSpecialView('app');
+          }}
+        />
+      </Suspense>
+    );
+  }
+
+  // Special Route 2: Volunteer / Police Live Dashboard (/dashboard)
+  if (activeSpecialView === 'dashboard') {
+    return (
+      <Suspense fallback={<ScreenLoadingFallback />}>
+        <VolunteerPoliceDashboard
+          onBackToApp={() => {
+            if (typeof window !== 'undefined') window.history.pushState({}, '', '/');
+            setActiveSpecialView('app');
+          }}
+        />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAF9] text-[#0D2119] flex flex-col font-sans select-none overflow-hidden">
       {/* Onboarding Flow: Splash -> Permissions -> Language */}
@@ -733,71 +803,76 @@ export default function App() {
           />
 
           {/* Active Screen Stage */}
-          <main className="flex-1 flex flex-col overflow-hidden relative">
-            {showRadar ? (
-              <Suspense fallback={<ScreenLoadingFallback />}>
-                <RadarScreen
-                  lang={lang}
+          <main className="flex-1 flex flex-col overflow-hidden relative min-h-0">
+            <ErrorBoundary fallbackTitle="Unable to load this screen" onReset={() => setCurrentTab('family')}>
+              {showRadar ? (
+                <Suspense fallback={<ScreenLoadingFallback />}>
+                  <RadarScreen
+                    lang={lang}
+                    myLocation={myLocation}
+                    myDeviceName={myDeviceName}
+                    compassHeading={compassHeading}
+                    pairedMembers={pairedMembers}
+                    bleActive={bleActive}
+                    bleDistances={bleDistances}
+                    onBack={() => setShowRadar(false)}
+                    onSelectMember={(member) => {
+                      setSelectedMember(member);
+                      setShowRadar(false);
+                      setCurrentTab('track');
+                    }}
+                  />
+                </Suspense>
+              ) : currentTab === 'family' ? (
+                <HomeScreen
                   myLocation={myLocation}
-                  myDeviceName={myDeviceName}
-                  compassHeading={compassHeading}
                   pairedMembers={pairedMembers}
-                  bleActive={bleActive}
-                  bleDistances={bleDistances}
-                  onBack={() => setShowRadar(false)}
+                  incomingDistress={incomingDistress}
+                  isOffline={isOffline}
                   onSelectMember={(member) => {
                     setSelectedMember(member);
-                    setShowRadar(false);
                     setCurrentTab('track');
                   }}
-                />
-              </Suspense>
-            ) : currentTab === 'family' ? (
-              <HomeScreen
-                myLocation={myLocation}
-                pairedMembers={pairedMembers}
-                incomingDistress={incomingDistress}
-                isOffline={isOffline}
-                onSelectMember={(member) => {
-                  setSelectedMember(member);
-                  setCurrentTab('track');
-                }}
-                onOpenMap={(member) => {
-                  if (member) setSelectedMember(member);
-                  setCurrentTab('map');
-                }}
-                onOpenAddMember={() => setAddMemberOpen(true)}
-                onRemoveMember={handleRemoveMember}
-                onDismissDistress={() => {
-                  audioHaptics.stopGroupDistressAlert();
-                  setIncomingDistress(null);
-                }}
-              />
-            ) : currentTab === 'map' ? (
-              <Suspense fallback={<ScreenLoadingFallback />}>
-                <MapScreen
-                  myLocation={myLocation}
-                  myDeviceName={myDeviceName}
-                  myColor={myColor}
-                  myBattery={myBattery}
-                  pairedMembers={pairedMembers}
-                  selectedMember={selectedMember}
-                  onSelectMember={(member) => setSelectedMember(member)}
-                  onNavigateToArrow={(member) => {
-                    setSelectedMember(member);
-                    setCurrentTab('track');
+                  onOpenMap={(member) => {
+                    if (member) setSelectedMember(member);
+                    setCurrentTab('map');
                   }}
-                  onBack={() => setCurrentTab('family')}
-                  lang={lang}
+                  onOpenAddMember={() => setAddMemberOpen(true)}
+                  onOpenAddKid={() => setAddKidOpen(true)}
+                  registeredKids={registeredKids}
+                  onRemoveMember={handleRemoveMember}
+                  onDismissDistress={() => {
+                    audioHaptics.stopGroupDistressAlert();
+                    setIncomingDistress(null);
+                  }}
                 />
-              </Suspense>
-            ) : currentTab === 'track' ? (
-              selectedMember ? (
-                <ArrowScreen
-                  member={selectedMember}
-                  myLocation={myLocation}
-                  compassHeading={compassHeading}
-                  isOffline={isOffline}
+              ) : currentTab === 'map' ? (
+                <Suspense fallback={<ScreenLoadingFallback />}>
+                  <MapScreen
+                    myLocation={myLocation}
+                    myDeviceName={myDeviceName}
+                    myColor={myColor}
+                    myBattery={myBattery}
+                    compassHeading={compassHeading}
+                    pairedMembers={pairedMembers}
+                    selectedMember={selectedMember}
+                    onSelectMember={(member) => setSelectedMember(member)}
+                    onNavigateToArrow={(member) => {
+                      setSelectedMember(member);
+                      setCurrentTab('track');
+                    }}
+                    onBack={() => setCurrentTab('family')}
+                    isOffline={isOffline}
+                    lang={lang}
+                  />
+                </Suspense>
+              ) : currentTab === 'track' ? (
+                selectedMember ? (
+                  <ArrowScreen
+                    member={selectedMember}
+                    myLocation={myLocation}
+                    compassHeading={compassHeading}
+                    isOffline={isOffline}
                   lang={lang}
                   myDeviceId={myDeviceId}
                   bleActive={bleActive}
@@ -862,6 +937,7 @@ export default function App() {
                 />
               </Suspense>
             )}
+            </ErrorBoundary>
           </main>
 
           {/* Global Persistent Bottom Navigation Bar (Section 3.3) */}
@@ -889,6 +965,21 @@ export default function App() {
             myDeviceName={myDeviceName}
             myLocation={myLocation}
             onPairMember={handlePairMember}
+          />
+        </Suspense>
+      )}
+
+      {/* 5.1b Add Kid Modal (QR-Tag Lost Child Recovery) */}
+      {addKidOpen && (
+        <Suspense fallback={null}>
+          <AddKidModal
+            isOpen={addKidOpen}
+            onClose={() => setAddKidOpen(false)}
+            myDeviceId={myDeviceId}
+            defaultLang={lang}
+            onChildLinked={(child) => {
+              setRegisteredKids((prev) => [child, ...prev.filter((k) => k.qr_id !== child.qr_id)]);
+            }}
           />
         </Suspense>
       )}
