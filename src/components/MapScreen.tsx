@@ -66,6 +66,14 @@ export const MapScreen: React.FC<Props> = ({
     }
 
     try {
+      // Fix Leaflet default icon asset paths for bundled environments
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      });
+
       const map = L.map(mapContainerRef.current, {
         center: [myLocation.latitude, myLocation.longitude],
         zoom: 16,
@@ -73,11 +81,31 @@ export const MapScreen: React.FC<Props> = ({
         attributionControl: false,
       });
 
-      // Add OpenStreetMap tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Primary CartoDB Voyager tile layer (fast & reliable CDN on hosted web platforms like Render)
+      const primaryTileLayer = L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        {
+          maxZoom: 19,
+          subdomains: 'abcd',
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        }
+      );
+
+      // Fallback OpenStreetMap tile layer
+      const osmFallbackLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         subdomains: ['a', 'b', 'c'],
-      }).addTo(map);
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      });
+
+      primaryTileLayer.on('tileerror', () => {
+        if (!map.hasLayer(osmFallbackLayer)) {
+          map.removeLayer(primaryTileLayer);
+          osmFallbackLayer.addTo(map);
+        }
+      });
+
+      primaryTileLayer.addTo(map);
 
       // Add lightweight scale control
       L.control.scale({ position: 'bottomleft', imperial: false }).addTo(map);
@@ -94,12 +122,17 @@ export const MapScreen: React.FC<Props> = ({
         resizeObserver.observe(mapContainerRef.current);
       }
 
-      // Initial map resize after DOM mount
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 250);
+      // Multiple map size recalculations after mount & transition
+      const timers = [100, 300, 700].map((delay) =>
+        setTimeout(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        }, delay)
+      );
 
       return () => {
+        timers.forEach(clearTimeout);
         if (resizeObserver) {
           resizeObserver.disconnect();
         }
