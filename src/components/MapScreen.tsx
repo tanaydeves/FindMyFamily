@@ -599,7 +599,7 @@ export const MapScreen: React.FC<Props> = ({
         }`}
       >
         {/* Leaflet container */}
-        <div ref={mapContainerRef} className="w-full h-full z-0 min-h-full" />
+        <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
         {/* Quick Zoom & Recenter Floating Controls (Bottom Right of canvas) */}
         <div className="absolute right-4 bottom-6 z-20 flex flex-col gap-2 shadow-lg rounded-2xl bg-white/95 backdrop-blur-md border border-[#E2E8F0] p-1">
