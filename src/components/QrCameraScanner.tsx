@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import jsQR from 'jsqr';
 import { Camera, RefreshCw, X, Check, QrCode, AlertCircle, Sparkles } from 'lucide-react';
 import { LanguageCode } from '../types';
 import { t } from '../i18n/translations';
@@ -17,6 +18,7 @@ export const QrCameraScanner: React.FC<Props> = ({
   availableSampleTags = ['QR-KUMBH-001', 'QR-KUMBH-002', 'QR-KUMBH-003', 'QR-KUMBH-004'],
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hasCamera, setHasCamera] = useState<boolean>(true);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -25,6 +27,8 @@ export const QrCameraScanner: React.FC<Props> = ({
 
   useEffect(() => {
     let stream: MediaStream | null = null;
+    let animationFrameId: number;
+    let isActive = true;
 
     async function startCamera() {
       try {
@@ -37,8 +41,10 @@ export const QrCameraScanner: React.FC<Props> = ({
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          videoRef.current.setAttribute('playsinline', 'true');
           videoRef.current.play().catch(() => {});
           setCameraActive(true);
+          requestAnimationFrame(tick);
         }
       } catch (err: any) {
         console.warn('[QR SCANNER] Camera init error:', err);
@@ -47,14 +53,46 @@ export const QrCameraScanner: React.FC<Props> = ({
       }
     }
 
+    function tick() {
+      if (!isActive) return;
+      if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+        const video = videoRef.current;
+        if (!canvasRef.current) {
+          canvasRef.current = document.createElement('canvas');
+        }
+        const canvas = canvasRef.current;
+        canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert',
+          });
+          if (code && code.data) {
+            console.log('[QR SCANNER] Found code:', code.data);
+            isActive = false;
+            handleSelectTag(code.data);
+            return;
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(tick);
+    }
+
     startCamera();
 
     return () => {
+      isActive = false;
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, []); // eslint-disable-next-line react-hooks/exhaustive-deps
 
   const handleSelectTag = (tag: string) => {
     setIsProcessing(true);
