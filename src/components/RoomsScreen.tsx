@@ -9,7 +9,6 @@ interface Props {
   onChangeCircle: (newCircleId: string) => void;
 }
 
-const PRESET_CIRCLES = ['KUMBH-2026', 'SHARMA-FAMILY', 'SANGAM-CAMP-4', 'VIP-GROUP-108'];
 
 export const RoomsScreen: React.FC<Props> = ({
   isOpen,
@@ -29,10 +28,6 @@ export const RoomsScreen: React.FC<Props> = ({
     setInputCode('');
   };
 
-  const handleSelectPreset = (circle: string) => {
-    onChangeCircle(circle);
-    onClose();
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center select-none">
@@ -88,49 +83,21 @@ export const RoomsScreen: React.FC<Props> = ({
           </div>
         </form>
 
-        {/* Section: Your Recent Circles */}
-        <div>
-          <div className="label-sm font-semibold uppercase tracking-wider text-[#5C7168] mb-3 font-['Inter']">
-            Your Recent Circles
+        <div className="flex flex-col gap-4 mt-8 pt-6 border-t border-[#E2E8F0]">
+          <div className="text-center text-sm font-semibold text-[#5C7168] mb-1">
+            Or create a brand new circle
           </div>
-          <div className="space-y-2">
-            {PRESET_CIRCLES.map((circle) => {
-              const isActive = circle === currentCircleId;
-              return (
-                <div
-                  key={circle}
-                  className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
-                    isActive
-                      ? 'bg-[#F8FAF9] border-[#1B4332]/40'
-                      : 'bg-white border-[#E2E8F0] hover:border-[#CBD5E1]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    {isActive ? (
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#4ADE80] shrink-0" />
-                    ) : (
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#E2E8F0] shrink-0" />
-                    )}
-                    <span className="font-mono font-bold text-sm text-[#0D2119]">{circle}</span>
-                  </div>
-
-                  {isActive ? (
-                    <span className="label-sm font-semibold text-[#1B4332] px-2.5 py-1 rounded-full bg-[#1B4332]/10">
-                      Active
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSelectPreset(circle)}
-                      className="label-sm font-bold text-[#1B4332] hover:underline cursor-pointer py-1 px-2"
-                    >
-                      Switch
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const newCode = `FMF-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+              onChangeCircle(newCode);
+              onClose();
+            }}
+            className="w-full flex items-center justify-center h-12 rounded-lg bg-[#F8FAF9] border border-[#CBD5E1] text-[#0D2119] font-bold hover:bg-[#F1F5F5] transition-all"
+          >
+            Create New Circle
+          </button>
         </div>
       </motion.div>
     </div>

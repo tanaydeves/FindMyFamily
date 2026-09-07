@@ -13,7 +13,7 @@ Imagine you're at Kumbh Mela with 40 million people. Your family member gets sep
 3. **Trigger an SOS distress alert** that blares a siren on their phone
 4. **Fall back to SMS** if there's no internet — the app sends GPS coordinates via text message
 
-**No sign-up, no accounts, no passwords.** You open the app, get a random device ID, join a "circle" (family group), and you're sharing locations.
+**No sign-up, no accounts, no passwords.** You open the app, get a random device ID, create or join a "circle" using a unique code, and you're sharing locations.
 
 ---
 
@@ -93,7 +93,7 @@ All app state lives in [App.tsx](file:///d:/FindMyFamily/src/App.tsx) as `useSta
 |---|---|---|
 | `myDeviceId` | Your unique ID (e.g., `dev_a3k9x`) | `localStorage` — survives app restarts |
 | `myDeviceName` | Display name | `localStorage` |
-| `circleId` | Family group name (e.g., `KUMBH-2026`) | `localStorage` |
+| `circleId` | Family group unique code (e.g., `FMF-A1B2`) | `localStorage` |
 | `pairedMembers` | Array of family members + their last known locations | `localStorage` |
 | `myLocation` | Your current GPS coordinates | Live from `navigator.geolocation.watchPosition()` |
 | `compassHeading` | Device compass direction (0–360°) | Live from `DeviceOrientation` API |

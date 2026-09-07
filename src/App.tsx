@@ -14,6 +14,7 @@ const MapScreen = lazy(() => import('./components/MapScreen').then(m => ({ defau
 const SettingsHubScreen = lazy(() => import('./components/SettingsHubScreen').then(m => ({ default: m.SettingsHubScreen })));
 const AddMemberSheet = lazy(() => import('./components/AddMemberSheet').then(m => ({ default: m.AddMemberSheet })));
 const InviteCircleScreen = lazy(() => import('./components/InviteCircleScreen').then(m => ({ default: m.InviteCircleScreen })));
+const CircleSetupScreen = lazy(() => import('./components/CircleSetupScreen').then(m => ({ default: m.CircleSetupScreen })));
 const RoomsScreen = lazy(() => import('./components/RoomsScreen').then(m => ({ default: m.RoomsScreen })));
 const ProfileScreen = lazy(() => import('./components/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
 const ConnectionSettingsScreen = lazy(() => import('./components/ConnectionSettingsScreen').then(m => ({ default: m.ConnectionSettingsScreen })));
@@ -51,12 +52,20 @@ const DEFAULT_LNG = 81.8463;
 
 export default function App() {
   // Onboarding Screen state (persisted for instant zero-lag boot)
-  const [onboardingScreen, setOnboardingScreen] = useState<'splash' | 'permissions' | 'language' | 'done'>(() => {
+  const [onboardingScreen, setOnboardingScreen] = useState<'splash' | 'permissions' | 'language' | 'circle_setup' | 'done'>(() => {
     try {
       if (typeof window !== 'undefined') {
         const onboarded = localStorage.getItem('fmf_onboarded');
         if (onboarded === 'true') {
-          return 'done';
+          const savedCircle = localStorage.getItem('fmf_circle_id');
+          const params = new URLSearchParams(window.location.search);
+          const qCircle = params.get('circle') || params.get('room') || params.get('group');
+          
+          if (savedCircle || qCircle) {
+            return 'done';
+          } else {
+            return 'circle_setup';
+          }
         }
       }
     } catch {}
@@ -143,9 +152,9 @@ export default function App() {
       if (qCircle) return qCircle.toUpperCase();
     }
     try {
-      return localStorage.getItem('fmf_circle_id') || 'KUMBH-2026';
+      return localStorage.getItem('fmf_circle_id') || '';
     } catch {
-      return 'KUMBH-2026';
+      return '';
     }
   });
 
@@ -580,11 +589,21 @@ export default function App() {
     setLang(newLang);
     try {
       localStorage.setItem('fmf_lang', newLang);
-      localStorage.setItem('fmf_onboarded', 'true');
     } catch {}
     if (onboardingScreen === 'language') {
-      setOnboardingScreen('done');
+      if (!circleId) {
+        setOnboardingScreen('circle_setup');
+      } else {
+        setOnboardingScreen('done');
+        try { localStorage.setItem('fmf_onboarded', 'true'); } catch {}
+      }
     }
+  };
+
+  const handleCircleSetupComplete = (newCircleId: string) => {
+    handleChangeCircle(newCircleId);
+    setOnboardingScreen('done');
+    try { localStorage.setItem('fmf_onboarded', 'true'); } catch {}
   };
 
   const handlePairMember = (member: FamilyMember) => {
@@ -756,6 +775,16 @@ export default function App() {
                 onSelectLang={handleSelectLang}
                 onBack={() => setOnboardingScreen('permissions')}
               />
+            </Suspense>
+          </div>
+        </div>
+      )}
+
+      {onboardingScreen === 'circle_setup' && (
+        <div className="w-full h-screen flex items-center justify-center p-0">
+          <div className="w-full max-w-md h-full bg-[#FFFFFF] shadow-lg flex flex-col">
+            <Suspense fallback={<ScreenLoadingFallback />}>
+              <CircleSetupScreen onComplete={handleCircleSetupComplete} />
             </Suspense>
           </div>
         </div>
