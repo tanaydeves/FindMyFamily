@@ -1,5 +1,6 @@
 // Offline Kid Registration Queue with Exponential Backoff Auto-Retry
 import { ChildProfile, LanguageCode } from '../types';
+import { relayClient } from './relayClient';
 
 export interface QueuedKidRegistration {
   qr_id: string;
@@ -136,6 +137,12 @@ class OfflineKidQueue {
     }, delay);
   }
 
+  public async forceSync(): Promise<{ synced: number; failed: number }> {
+    this.currentDelayMs = 1000;
+    if (this.syncTimer) clearTimeout(this.syncTimer);
+    return this.syncQueue();
+  }
+
   public async syncQueue(): Promise<{ synced: number; failed: number }> {
     if (this.isSyncing) return { synced: 0, failed: 0 };
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -149,10 +156,11 @@ class OfflineKidQueue {
     let synced = 0;
     let failed = 0;
     const remaining: QueuedKidRegistration[] = [];
+    const baseUrl = relayClient.getServerUrl();
 
     for (const item of queue) {
       try {
-        const res = await fetch('/api/children/link', {
+        const res = await fetch(`${baseUrl}/api/children/link`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -210,6 +218,7 @@ class OfflineKidQueue {
       this.currentDelayMs = 2000;
     }
 
+    this.notify();
     return { synced, failed };
   }
 }

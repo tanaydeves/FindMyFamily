@@ -11,6 +11,30 @@ interface Props {
   availableSampleTags?: string[];
 }
 
+export function normalizeScannedQrTag(raw: string): string {
+  if (!raw) return '';
+  const cleaned = raw.trim();
+  try {
+    if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+      const url = new URL(cleaned);
+      // Check for /lost/:qrId or /lost-status/:qrId in our own app URL patterns
+      const match = url.pathname.match(/\/(?:lost|lost-status|tag|child)\/([^/?#]+)/i);
+      if (match && match[1]) {
+        return decodeURIComponent(match[1]).trim().toUpperCase();
+      }
+      // If external short URL like https://qrstud.io/qrmnky, extract the last path slug
+      const segments = url.pathname.split('/').filter(Boolean);
+      if (segments.length > 0) {
+        return segments[segments.length - 1].trim().toUpperCase();
+      }
+      // Fallback to domain name without punctuation
+      return url.hostname.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase();
+    }
+  } catch {}
+  // Clean whitespace/newlines
+  return cleaned.replace(/[\s\r\n]+/g, '').toUpperCase();
+}
+
 export const QrCameraScanner: React.FC<Props> = ({
   onScan,
   onClose,
@@ -95,9 +119,10 @@ export const QrCameraScanner: React.FC<Props> = ({
   }, []); // eslint-disable-next-line react-hooks/exhaustive-deps
 
   const handleSelectTag = (tag: string) => {
+    const normalized = normalizeScannedQrTag(tag);
     setIsProcessing(true);
     setTimeout(() => {
-      onScan(tag.trim().toUpperCase());
+      onScan(normalized);
     }, 200);
   };
 

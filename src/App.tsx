@@ -632,6 +632,11 @@ export default function App() {
     }
   };
 
+  const handleDeleteKid = async (qrId: string) => {
+    await lostChildService.deleteChild(qrId);
+    setRegisteredKids((prev) => prev.filter((k) => k.qr_id !== qrId));
+  };
+
   const handleTriggerDistressAlert = async () => {
     audioHaptics.startDistressSiren();
     const res = await relayClient.sendDistressAlert(myLocation.latitude, myLocation.longitude, myDeviceName);
@@ -870,6 +875,7 @@ export default function App() {
                   onOpenAddKid={() => setAddKidOpen(true)}
                   registeredKids={registeredKids}
                   onRemoveMember={handleRemoveMember}
+                  onDeleteKid={handleDeleteKid}
                   onDismissDistress={() => {
                     audioHaptics.stopGroupDistressAlert();
                     setIncomingDistress(null);

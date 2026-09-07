@@ -1,6 +1,7 @@
 // Lost Child QR Service: Handles child linking, lost reports, dashboard, and volunteer centers
 import { ChildProfile, LostAlert, VolunteerCenter, QrStatus, DashboardRole } from '../types';
 import { offlineKidQueue } from './offlineKidQueue';
+import { relayClient } from './relayClient';
 
 export interface LinkChildParams {
   qr_id: string;
@@ -42,6 +43,10 @@ export interface TagStatusResponse {
 }
 
 class LostChildService {
+  private getBaseUrl(): string {
+    return relayClient.getServerUrl();
+  }
+
   /**
    * Link child to an unassigned QR sticker.
    * If network fails or device is offline, queues locally with exponential backoff.
@@ -68,7 +73,7 @@ class LostChildService {
     }
 
     try {
-      const response = await fetch('/api/children/link', {
+      const response = await fetch(`${this.getBaseUrl()}/api/children/link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
@@ -115,10 +120,25 @@ class LostChildService {
   }
 
   /**
+   * Delete / Unlink child profile from server and clear from offline queue
+   */
+  async deleteChild(qr_id: string): Promise<{ success: boolean; error?: string }> {
+    offlineKidQueue.removeFromQueue(qr_id);
+    try {
+      const res = await fetch(`${this.getBaseUrl()}/api/children/${encodeURIComponent(qr_id)}`, {
+        method: 'DELETE',
+      });
+      return { success: res.ok };
+    } catch (err: any) {
+      return { success: true };
+    }
+  }
+
+  /**
    * Fetch tag status and public payload for bystander web flow
    */
   async getTagStatus(qr_id: string): Promise<TagStatusResponse> {
-    const res = await fetch(`/api/lost/${encodeURIComponent(qr_id)}`);
+    const res = await fetch(`${this.getBaseUrl()}/api/lost/${encodeURIComponent(qr_id)}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Failed to fetch tag status: ${res.status}`);
@@ -131,7 +151,7 @@ class LostChildService {
    */
   async submitLostAlert(data: LostAlertSubmission): Promise<{ success: boolean; alert?: LostAlert; error?: string }> {
     try {
-      const res = await fetch('/api/lost-alerts', {
+      const res = await fetch(`${this.getBaseUrl()}/api/lost-alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -154,7 +174,7 @@ class LostChildService {
    */
   async getVolunteerCenters(): Promise<VolunteerCenter[]> {
     try {
-      const res = await fetch('/api/volunteer-centers');
+      const res = await fetch(`${this.getBaseUrl()}/api/volunteer-centers`);
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : [];
@@ -173,7 +193,7 @@ class LostChildService {
       if (centerId && role === 'volunteer') {
         params.set('centerId', centerId);
       }
-      const res = await fetch(`/api/dashboard/alerts?${params.toString()}`);
+      const res = await fetch(`${this.getBaseUrl()}/api/dashboard/alerts?${params.toString()}`);
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : [];
@@ -187,7 +207,7 @@ class LostChildService {
    */
   async acknowledgeAlert(alertId: string, userId: string = 'volunteer_user'): Promise<boolean> {
     try {
-      const res = await fetch(`/api/dashboard/alerts/${alertId}/acknowledge`, {
+      const res = await fetch(`${this.getBaseUrl()}/api/dashboard/alerts/${alertId}/acknowledge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
@@ -203,7 +223,7 @@ class LostChildService {
    */
   async resolveAlert(alertId: string, userId: string = 'volunteer_user'): Promise<boolean> {
     try {
-      const res = await fetch(`/api/dashboard/alerts/${alertId}/resolve`, {
+      const res = await fetch(`${this.getBaseUrl()}/api/dashboard/alerts/${alertId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
@@ -221,7 +241,7 @@ class LostChildService {
     // Combine server-fetched with local pending sync
     const offlinePending = offlineKidQueue.getPendingForUser(userId);
     try {
-      const res = await fetch(`/api/children/my?userId=${encodeURIComponent(userId)}`);
+      const res = await fetch(`${this.getBaseUrl()}/api/children/my?userId=${encodeURIComponent(userId)}`);
       if (res.ok) {
         const serverChildren: ChildProfile[] = await res.json();
         // Merge without duplicates

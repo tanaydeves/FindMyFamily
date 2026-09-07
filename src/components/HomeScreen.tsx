@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   UserPlus,
   ChevronRight,
@@ -18,10 +18,12 @@ import {
   ShieldCheck,
   Clock,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FamilyMember, DistressAlert, ChildProfile } from '../types';
 import { calculateDistance, calculateBearing } from '../services/navigationMath';
+import { offlineKidQueue } from '../services/offlineKidQueue';
 
 interface Props {
   myLocation: { latitude: number; longitude: number };
@@ -34,6 +36,7 @@ interface Props {
   onOpenAddMember: () => void;
   onOpenAddKid?: () => void;
   onRemoveMember?: (memberId: string) => void;
+  onDeleteKid?: (qr_id: string) => void;
   onDismissDistress: () => void;
 }
 
@@ -48,8 +51,20 @@ export const HomeScreen: React.FC<Props> = ({
   onOpenAddMember,
   onOpenAddKid,
   onRemoveMember,
+  onDeleteKid,
   onDismissDistress,
 }) => {
+  const [isSyncingKids, setIsSyncingKids] = useState(false);
+
+  const handleManualSync = async () => {
+    setIsSyncingKids(true);
+    try {
+      await offlineKidQueue.forceSync();
+    } catch {}
+    setTimeout(() => {
+      setIsSyncingKids(false);
+    }, 800);
+  };
   return (
     <div className="flex-1 flex flex-col h-full bg-[#F8FAF9] text-[#0D2119] select-none relative overflow-hidden">
       {/* Network / Status Banner (directly under top bar) */}
@@ -160,7 +175,7 @@ export const HomeScreen: React.FC<Props> = ({
               {registeredKids.map((kid) => (
                 <div
                   key={kid.qr_id}
-                  className="p-3.5 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-between shadow-xs"
+                  className="p-3.5 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-between shadow-xs transition-all hover:border-[#CBD5E1]"
                 >
                   <div className="flex items-center gap-3">
                     <img
@@ -178,26 +193,47 @@ export const HomeScreen: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {kid.isPendingSync ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] flex items-center gap-1">
-                        <Clock className="w-3 h-3 animate-spin" />
-                        <span>Pending sync</span>
-                      </span>
+                      <button
+                        onClick={handleManualSync}
+                        disabled={isSyncingKids}
+                        className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] hover:bg-[#FDE68A] flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Click to retry sync with server now"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isSyncingKids ? 'animate-spin' : ''}`} />
+                        <span>{isSyncingKids ? 'Syncing...' : 'Sync Now'}</span>
+                      </button>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0]">
                         Active
                       </span>
                     )}
+
                     <a
                       href={`/lost/${kid.qr_id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg text-[#94A3B8] hover:text-[#1B4332] hover:bg-[#F1F5F9]"
+                      className="p-1.5 rounded-lg text-[#94A3B8] hover:text-[#1B4332] hover:bg-[#F1F5F9] transition-colors"
                       title="View Public QR Page"
                     >
                       <ExternalLink className="w-4 h-4" />
                     </a>
+
+                    {onDeleteKid && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Remove QR tag "${kid.qr_id}" (${kid.child_name || 'Child'})?`)) {
+                            onDeleteKid(kid.qr_id);
+                          }
+                        }}
+                        className="p-1.5 rounded-lg text-[#94A3B8] hover:text-[#DC2626] hover:bg-[#FEF2F2] cursor-pointer transition-colors"
+                        title="Remove QR Tag"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

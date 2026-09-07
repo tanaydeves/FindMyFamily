@@ -91,6 +91,7 @@ class DatabaseRepository {
     try {
       if (process.env.DATABASE_URL) {
         // Attempt dynamic load of @prisma/client
+        // @ts-ignore
         const { PrismaClient } = await import('@prisma/client');
         this.prismaClient = new PrismaClient();
         await this.prismaClient.$connect();
@@ -163,16 +164,34 @@ class DatabaseRepository {
   // --- Child Linking (Part 4 Steps 5-6) ---
   public async linkChildProfile(params: CreateChildParams): Promise<{ success: boolean; child?: ChildProfile; error?: string }> {
     const { qr_id } = params;
-    const tag = await this.getQrTag(qr_id);
+    let tag = await this.getQrTag(qr_id);
 
-    // Strict state machine validation: must exist and must be UNASSIGNED
+    // If tag is not yet in the system, dynamically provision it as unassigned
     if (!tag) {
-      return {
-        success: false,
-        error: 'This QR code is not recognized in the system. Please obtain an official sticker from a volunteer desk.',
+      const newTag: QrTag = {
+        qr_id,
+        status: 'unassigned',
+        printed_at: new Date().toISOString(),
+        assigned_at: null,
+        retired_at: null,
+        volunteer_center_id: 'center-sangam',
       };
+      if (this.isPrismaReady) {
+        try {
+          await this.prismaClient.qr_tags.create({
+            data: {
+              qr_id,
+              status: 'unassigned',
+              volunteer_center_id: 'center-sangam',
+            },
+          });
+        } catch {}
+      }
+      this.qrTags.set(qr_id, newTag);
+      tag = newTag;
     }
 
+    // Strict state machine validation: must be UNASSIGNED
     if (tag.status !== 'unassigned') {
       return {
         success: false,
@@ -201,8 +220,9 @@ class DatabaseRepository {
     if (this.isPrismaReady) {
       try {
         await this.prismaClient.$transaction([
-          this.prismaClient.child_profiles.create({
-            data: {
+          this.prismaClient.child_profiles.upsert({
+            where: { qr_id: params.qr_id },
+            create: {
               child_id: newChild.child_id,
               qr_id: newChild.qr_id,
               mother_name: newChild.mother_name,
@@ -212,6 +232,14 @@ class DatabaseRepository {
               contact_number_secondary: newChild.contact_number_secondary,
               language_pref: newChild.language_pref,
               created_by_user_id: newChild.created_by_user_id,
+            },
+            update: {
+              mother_name: newChild.mother_name,
+              father_name: newChild.father_name,
+              photo_url: newChild.photo_url,
+              contact_number_primary: newChild.contact_number_primary,
+              contact_number_secondary: newChild.contact_number_secondary,
+              language_pref: newChild.language_pref,
             },
           }),
           this.prismaClient.qr_tags.update({
@@ -235,6 +263,36 @@ class DatabaseRepository {
 
     console.log(`[DB REPOSITORY] Successfully linked QR ${qr_id} to child "${newChild.child_name}" (Parents: ${newChild.mother_name} / ${newChild.father_name})`);
     return { success: true, child: newChild };
+  }
+
+  public async deleteChildProfile(qrId: string): Promise<boolean> {
+    if (this.isPrismaReady) {
+      try {
+        await this.prismaClient.$transaction([
+          this.prismaClient.child_profiles.deleteMany({
+            where: { qr_id: qrId },
+          }),
+          this.prismaClient.qr_tags.updateMany({
+            where: { qr_id: qrId },
+            data: {
+              status: 'unassigned',
+              assigned_at: null,
+            },
+          }),
+        ]);
+      } catch (err: any) {
+        console.error('[DB REPOSITORY] Prisma deleteChildProfile error:', err);
+      }
+    }
+    this.childProfiles.delete(qrId);
+    const tag = this.qrTags.get(qrId);
+    if (tag) {
+      tag.status = 'unassigned';
+      tag.assigned_at = null;
+      this.qrTags.set(qrId, tag);
+    }
+    console.log(`[DB REPOSITORY] Unlinked child profile for QR ${qrId}`);
+    return true;
   }
 
   public async getChildByQrId(qrId: string): Promise<ChildProfile | null> {

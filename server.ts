@@ -319,6 +319,17 @@ async function startServer() {
     }
   });
 
+  // Delete / Unlink Child Profile
+  app.delete(['/api/children/:qr_id', '/children/:qr_id'], async (req, res) => {
+    const { qr_id } = req.params;
+    try {
+      await dbRepository.deleteChildProfile(qr_id);
+      return res.json({ success: true, message: 'Child profile unlinked successfully.' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Failed to delete child profile.' });
+    }
+  });
+
   // 3. Public Bystander Tag Status Endpoint (Part 5)
   app.get(['/api/lost/:qr_id', '/lost-status/:qr_id'], async (req, res) => {
     const { qr_id } = req.params;
