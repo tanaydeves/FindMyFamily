@@ -421,23 +421,38 @@ export default function App() {
     };
   }, [myDeviceId, myDeviceName, circleId, myColor]);
 
-  // Real GPS Geolocation Watcher
+  // Real GPS Geolocation Watcher with Fallback
   useEffect(() => {
     let watchId: number | null = null;
-    if (useRealGps && typeof navigator !== 'undefined' && navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          setMyLocation({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          });
-        },
-        (err) => {
-          console.warn('[GPS] Geolocation error:', err);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 2000 }
-      );
-    }
+
+    const startWatching = (highAccuracy: boolean) => {
+      if (useRealGps && typeof navigator !== 'undefined' && navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            setMyLocation({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          },
+          (err) => {
+            console.warn(`[GPS] Geolocation error (highAccuracy: ${highAccuracy}):`, err);
+            // If high accuracy fails or times out, fallback to low accuracy (cell tower / wifi)
+            if (highAccuracy && watchId !== null) {
+              navigator.geolocation.clearWatch(watchId);
+              startWatching(false);
+            }
+          },
+          { 
+            enableHighAccuracy: highAccuracy, 
+            timeout: highAccuracy ? 20000 : 30000, // Increase timeout to give Android more time to lock
+            maximumAge: 1000 // Reduced from 2000ms for more real-time Radar
+          }
+        );
+      }
+    };
+
+    startWatching(true);
+
     return () => {
       if (watchId !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchId);
@@ -521,7 +536,7 @@ export default function App() {
     };
   }, [myLocation, myDeviceName, compassHeading, myBattery, myColor, isOffline]);
 
-  // Broadcast location periodically (steady 4-second cadence)
+  // Broadcast location periodically (fast 1.5-second cadence for real-time Radar/Airtag)
   useEffect(() => {
     const interval = setInterval(async () => {
       const state = broadcastStateRef.current;
@@ -539,7 +554,7 @@ export default function App() {
       if (state.isOffline || (res && !res.success)) {
         sendSmsToPairedMembers(false);
       }
-    }, 4000);
+    }, 1500);
     return () => clearInterval(interval);
   }, []);
 
