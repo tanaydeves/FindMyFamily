@@ -84,6 +84,7 @@ export const MapScreen: React.FC<Props> = ({
   const [activeLayerType, setActiveLayerType] = useState<MapLayerType>('voyager');
   const [showLayerMenu, setShowLayerMenu] = useState(false);
   const [showLandmarks, setShowLandmarks] = useState(true);
+  const hasInitialCenteredRef = useRef(false);
 
   const safeMyLat = getSafeCoord(myLocation?.latitude, DEFAULT_LAT);
   const safeMyLng = getSafeCoord(myLocation?.longitude, DEFAULT_LNG);
@@ -92,10 +93,10 @@ export const MapScreen: React.FC<Props> = ({
   const validMembers = useMemo(() => {
     return (pairedMembers || []).map((m, idx) => ({
       ...m,
-      lastLat: getSafeCoord(m.lastLat, DEFAULT_LAT + (idx + 1) * 0.0012),
-      lastLng: getSafeCoord(m.lastLng, DEFAULT_LNG + (idx + 1) * 0.0015),
+      lastLat: getSafeCoord(m.lastLat, safeMyLat + (idx + 1) * 0.0012),
+      lastLng: getSafeCoord(m.lastLng, safeMyLng + (idx + 1) * 0.0015),
     }));
-  }, [pairedMembers]);
+  }, [pairedMembers, safeMyLat, safeMyLng]);
 
   // Configure Leaflet default icons safely
   useEffect(() => {
@@ -127,13 +128,13 @@ export const MapScreen: React.FC<Props> = ({
         attributionControl: false,
       });
 
-      // Primary CartoDB Voyager tiles
+      // Primary OpenStreetMap standard tiles (watermark-free & fast)
       const voyagerLayer = L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {
           maxZoom: 19,
-          subdomains: 'abcd',
-          attribution: '&copy; CARTO &copy; OpenStreetMap',
+          subdomains: ['a', 'b', 'c'],
+          attribution: '&copy; OpenStreetMap contributors',
         }
       );
 
@@ -246,8 +247,8 @@ export const MapScreen: React.FC<Props> = ({
 
     if (activeLayerType === 'voyager') {
       const layer = L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        { maxZoom: 19, subdomains: 'abcd' }
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { maxZoom: 19, subdomains: ['a', 'b', 'c'], attribution: '&copy; OpenStreetMap' }
       );
       layer.addTo(map);
       tileLayerRef.current = layer;
@@ -255,6 +256,7 @@ export const MapScreen: React.FC<Props> = ({
       const layer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         subdomains: ['a', 'b', 'c'],
+        attribution: '&copy; OpenStreetMap',
       });
       layer.addTo(map);
       tileLayerRef.current = layer;
@@ -318,6 +320,12 @@ export const MapScreen: React.FC<Props> = ({
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
     const latLng: [number, number] = [safeMyLat, safeMyLng];
+
+    // Automatically center map on user position on first location fix
+    if (!hasInitialCenteredRef.current) {
+      map.setView(latLng, 16, { animate: true });
+      hasInitialCenteredRef.current = true;
+    }
 
     const myHtml = `
       <div style="position: relative; display: flex; align-items: center; justify-content: center;">
@@ -556,7 +564,7 @@ export const MapScreen: React.FC<Props> = ({
                   Map View Style
                 </div>
                 {[
-                  { id: 'voyager' as MapLayerType, label: 'Carto Voyager', desc: 'Fast & Clean' },
+                  { id: 'voyager' as MapLayerType, label: 'Standard Streets', desc: 'Fast & Clean' },
                   { id: 'osm' as MapLayerType, label: 'OpenStreetMap', desc: 'Detailed Roads' },
                   { id: 'satellite' as MapLayerType, label: 'Satellite View', desc: 'Aerial Imagery' },
                   { id: 'tactical' as MapLayerType, label: 'Offline Tactical', desc: 'Zero Data Grid' },
