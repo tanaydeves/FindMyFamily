@@ -48,6 +48,7 @@ model qr_tags {
 model child_profiles {
   child_id                 String       @id @default(uuid())
   qr_id                    String       @unique
+  child_name               String?
   mother_name              String
   father_name              String
   photo_url                String

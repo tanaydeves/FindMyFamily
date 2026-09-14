@@ -1,5 +1,5 @@
-// Database Repository Layer for QR-Tag Lost Child Recovery
-// Implements Supabase / Postgres integration via Prisma Client with automatic resilient fallback
+import dotenv from 'dotenv';
+dotenv.config();
 import { QrStatus, AlertStatus, LanguageCode, ChildProfile, LostAlert, VolunteerCenter, QrTag } from '../types';
 
 export interface CreateChildParams {
@@ -27,6 +27,7 @@ export interface CreateAlertParams {
 class DatabaseRepository {
   private prismaClient: any = null;
   private isPrismaReady = false;
+  private initPromise: Promise<void> | null = null;
 
   // In-Memory Relational Tables (used when Prisma/Postgres is offline or during testing)
   private qrTags = new Map<string, QrTag>();
@@ -36,7 +37,13 @@ class DatabaseRepository {
 
   constructor() {
     this.seedDefaultData();
-    this.initPrisma();
+    this.initPromise = this.initPrisma();
+  }
+
+  public async ensureInitialized() {
+    if (this.initPromise) {
+      await this.initPromise;
+    }
   }
 
   private seedDefaultData() {
@@ -97,6 +104,7 @@ class DatabaseRepository {
         await this.prismaClient.$connect();
         this.isPrismaReady = true;
         console.log('[DB REPOSITORY] Successfully connected to PostgreSQL via Prisma Client!');
+        await this.seedPrismaDatabase();
       }
     } catch (err: any) {
       console.warn('[DB REPOSITORY] Prisma client not active (running in resilient relational mode):', err.message);
@@ -104,8 +112,67 @@ class DatabaseRepository {
     }
   }
 
+  private async seedPrismaDatabase() {
+    if (!this.isPrismaReady || !this.prismaClient) return;
+    try {
+      // 1. Seed volunteer centers into Supabase
+      const defaultCenters: VolunteerCenter[] = [
+        {
+          center_id: 'center-sangam',
+          name: 'Sangam Ghat Central Camp',
+          location_lat: 25.4285,
+          location_lng: 81.8845,
+        },
+        {
+          center_id: 'center-sector4',
+          name: 'Sector 4 Administrative Center',
+          location_lat: 25.4380,
+          location_lng: 81.8620,
+        },
+        {
+          center_id: 'center-dashashwamedh',
+          name: 'Dashashwamedh Pilgrim Helpdesk',
+          location_lat: 25.4410,
+          location_lng: 81.8510,
+        },
+        {
+          center_id: 'center-vip',
+          name: 'VIP Ghat Rescue Post',
+          location_lat: 25.4320,
+          location_lng: 81.8710,
+        },
+      ];
+
+      await this.prismaClient.volunteer_centers.createMany({
+        data: defaultCenters,
+        skipDuplicates: true,
+      });
+
+      // 2. Seed default unassigned QR tags (QR-KUMBH-001 through 050) into Supabase
+      const defaultTags = [];
+      for (let i = 1; i <= 50; i++) {
+        const pad = String(i).padStart(3, '0');
+        defaultTags.push({
+          qr_id: `QR-KUMBH-${pad}`,
+          status: 'unassigned' as const,
+          volunteer_center_id: 'center-sangam',
+        });
+      }
+
+      await this.prismaClient.qr_tags.createMany({
+        data: defaultTags,
+        skipDuplicates: true,
+      });
+
+      console.log('[DB REPOSITORY] Successfully seeded volunteer centers and QR tags into Supabase!');
+    } catch (err: any) {
+      console.error('[DB REPOSITORY] Error seeding Prisma database:', err.message || err);
+    }
+  }
+
   // --- Volunteer Centers ---
   public async getVolunteerCenters(): Promise<VolunteerCenter[]> {
+    await this.ensureInitialized();
     if (this.isPrismaReady) {
       try {
         return await this.prismaClient.volunteer_centers.findMany();
@@ -116,6 +183,7 @@ class DatabaseRepository {
 
   // --- QR Tags ---
   public async getQrTag(qrId: string): Promise<QrTag | null> {
+    await this.ensureInitialized();
     if (this.isPrismaReady) {
       try {
         return await this.prismaClient.qr_tags.findUnique({
@@ -127,6 +195,7 @@ class DatabaseRepository {
   }
 
   public async createBatchQrTags(count: number, prefix = 'QR-KUMBH', centerId?: string): Promise<QrTag[]> {
+    await this.ensureInitialized();
     const created: QrTag[] = [];
     const timestamp = new Date().toISOString();
 
@@ -163,6 +232,7 @@ class DatabaseRepository {
 
   // --- Child Linking (Part 4 Steps 5-6) ---
   public async linkChildProfile(params: CreateChildParams): Promise<{ success: boolean; child?: ChildProfile; error?: string }> {
+    await this.ensureInitialized();
     const { qr_id } = params;
     let tag = await this.getQrTag(qr_id);
 
@@ -176,23 +246,45 @@ class DatabaseRepository {
         retired_at: null,
         volunteer_center_id: 'center-sangam',
       };
-      if (this.isPrismaReady) {
-        try {
-          await this.prismaClient.qr_tags.create({
-            data: {
-              qr_id,
-              status: 'unassigned',
-              volunteer_center_id: 'center-sangam',
-            },
-          });
-        } catch {}
-      }
       this.qrTags.set(qr_id, newTag);
       tag = newTag;
     }
 
-    // Strict state machine validation: must be UNASSIGNED
+    if (this.isPrismaReady) {
+      try {
+        // Ensure default volunteer center exists in Supabase
+        await this.prismaClient.volunteer_centers.upsert({
+          where: { center_id: 'center-sangam' },
+          create: {
+            center_id: 'center-sangam',
+            name: 'Sangam Ghat Central Camp',
+            location_lat: 25.4285,
+            location_lng: 81.8845,
+          },
+          update: {},
+        });
+
+        // Ensure QR tag exists in Supabase
+        await this.prismaClient.qr_tags.upsert({
+          where: { qr_id },
+          create: {
+            qr_id,
+            status: 'unassigned',
+            volunteer_center_id: 'center-sangam',
+          },
+          update: {},
+        });
+      } catch (err: any) {
+        console.error('[DB REPOSITORY] Failed to ensure prerequisite records in Supabase:', err.message || err);
+      }
+    }
+
+    // Strict state machine validation: must be UNASSIGNED or already assigned to same child
     if (tag.status !== 'unassigned') {
+      const existingChild = await this.getChildByQrId(qr_id);
+      if (existingChild) {
+        return { success: true, child: existingChild };
+      }
       return {
         success: false,
         error: 'This QR is already in use. Please request a new sticker from the volunteer desk.',
@@ -220,11 +312,19 @@ class DatabaseRepository {
     if (this.isPrismaReady) {
       try {
         await this.prismaClient.$transaction([
+          this.prismaClient.qr_tags.update({
+            where: { qr_id: params.qr_id },
+            data: {
+              status: 'assigned',
+              assigned_at: new Date(),
+            },
+          }),
           this.prismaClient.child_profiles.upsert({
             where: { qr_id: params.qr_id },
             create: {
               child_id: newChild.child_id,
               qr_id: newChild.qr_id,
+              child_name: newChild.child_name,
               mother_name: newChild.mother_name,
               father_name: newChild.father_name,
               photo_url: newChild.photo_url,
@@ -234,6 +334,7 @@ class DatabaseRepository {
               created_by_user_id: newChild.created_by_user_id,
             },
             update: {
+              child_name: newChild.child_name,
               mother_name: newChild.mother_name,
               father_name: newChild.father_name,
               photo_url: newChild.photo_url,
@@ -242,16 +343,14 @@ class DatabaseRepository {
               language_pref: newChild.language_pref,
             },
           }),
-          this.prismaClient.qr_tags.update({
-            where: { qr_id: params.qr_id },
-            data: {
-              status: 'assigned',
-              assigned_at: new Date(),
-            },
-          }),
         ]);
+        console.log('[DB REPOSITORY] Successfully saved child profile to Supabase database!');
       } catch (err: any) {
-        console.error('[DB REPOSITORY] Prisma link error:', err);
+        console.error('[DB REPOSITORY] Prisma link error:', err.message || err);
+        return {
+          success: false,
+          error: `Database sync failed: ${err.message || 'Failed to save to Supabase database'}`,
+        };
       }
     }
 

@@ -181,8 +181,21 @@ class OfflineKidQueue {
           console.log(`[OFFLINE QUEUE] Successfully synced kid for tag: ${item.qr_id}`);
         } else {
           const errData = await res.json().catch(() => ({}));
-          // If server explicitly rejected with status 400 (e.g., already assigned), drop from queue to stop infinite retry
+          // If server returned 400/409, check if child profile is already stored on server
           if (res.status === 400 || res.status === 409) {
+            try {
+              const checkRes = await fetch(`${baseUrl}/api/children/my?userId=${encodeURIComponent(item.created_by_user_id)}`);
+              if (checkRes.ok) {
+                const myKids = await checkRes.json();
+                const exists = Array.isArray(myKids) && myKids.some((k: any) => k.qr_id === item.qr_id);
+                if (exists) {
+                  synced++;
+                  console.log(`[OFFLINE QUEUE] Verified tag ${item.qr_id} is already active on server. Clearing from queue.`);
+                  continue;
+                }
+              }
+            } catch {}
+
             console.warn(`[OFFLINE QUEUE] Registration permanently rejected for ${item.qr_id}:`, errData.error);
             failed++;
           } else {

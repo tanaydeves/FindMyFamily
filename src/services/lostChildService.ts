@@ -244,8 +244,13 @@ class LostChildService {
       const res = await fetch(`${this.getBaseUrl()}/api/children/my?userId=${encodeURIComponent(userId)}`);
       if (res.ok) {
         const serverChildren: ChildProfile[] = await res.json();
-        // Merge without duplicates
+        // Merge without duplicates: clean queue if server returned the child
         const serverQrIds = new Set(serverChildren.map((c) => c.qr_id));
+        for (const child of serverChildren) {
+          if (offlineKidQueue.isQueued(child.qr_id)) {
+            offlineKidQueue.removeFromQueue(child.qr_id);
+          }
+        }
         const combined = [
           ...serverChildren,
           ...offlinePending.filter((c) => !serverQrIds.has(c.qr_id)),

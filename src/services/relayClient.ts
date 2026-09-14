@@ -44,6 +44,9 @@ class RelayClient {
           !origin.startsWith('capacitor:') &&
           !origin.startsWith('file:')
         ) {
+          if (origin.includes(':5173')) {
+            return 'http://localhost:3000';
+          }
           return origin.replace(/\/+$/, '');
         }
       }
