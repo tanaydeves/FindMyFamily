@@ -246,7 +246,7 @@ export const AddMemberSheet: React.FC<Props> = ({
 
             <div>
               <label className="label-sm font-semibold text-[#0D2119] block mb-1.5">
-                Phone Number (optional, for SMS fallback)
+                Phone Number (optional, for emergency contact)
               </label>
               <input
                 type="tel"

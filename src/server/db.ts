@@ -279,12 +279,8 @@ class DatabaseRepository {
       }
     }
 
-    // Strict state machine validation: must be UNASSIGNED or already assigned to same child
+    // Strict state machine validation: must be UNASSIGNED
     if (tag.status !== 'unassigned') {
-      const existingChild = await this.getChildByQrId(qr_id);
-      if (existingChild) {
-        return { success: true, child: existingChild };
-      }
       return {
         success: false,
         error: 'This QR is already in use. Please request a new sticker from the volunteer desk.',
@@ -446,7 +442,6 @@ class DatabaseRepository {
       finder_lng: params.finder_lng,
       finder_landmark_note: params.finder_landmark_note,
       finder_contact_optional: params.finder_contact_optional,
-      sms_sent_at: now,
       dashboard_alerted_at: now,
       status: 'open',
       finder_ip: params.finder_ip || '127.0.0.1',
@@ -475,7 +470,6 @@ class DatabaseRepository {
               finder_lng: alert.finder_lng,
               finder_landmark_note: alert.finder_landmark_note,
               finder_contact_optional: alert.finder_contact_optional,
-              sms_sent_at: new Date(),
               dashboard_alerted_at: new Date(),
               status: 'open',
               finder_ip: alert.finder_ip,

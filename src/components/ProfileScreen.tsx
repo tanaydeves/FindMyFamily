@@ -93,7 +93,7 @@ export const ProfileScreen: React.FC<Props> = ({
 
             <div>
               <label className="label-sm font-semibold text-[#0D2119] block mb-1.5">
-                Phone Number (for SMS fallback)
+                Phone Number (Emergency Contact)
               </label>
               <input
                 type="tel"

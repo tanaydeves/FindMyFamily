@@ -20,7 +20,6 @@ const ProfileScreen = lazy(() => import('./components/ProfileScreen').then(m => 
 const ConnectionSettingsScreen = lazy(() => import('./components/ConnectionSettingsScreen').then(m => ({ default: m.ConnectionSettingsScreen })));
 const DistressConfirmModal = lazy(() => import('./components/DistressConfirmModal').then(m => ({ default: m.DistressConfirmModal })));
 const HelpSafetyModal = lazy(() => import('./components/HelpSafetyModal').then(m => ({ default: m.HelpSafetyModal })));
-const SmsHubModal = lazy(() => import('./components/SmsHubModal').then(m => ({ default: m.SmsHubModal })));
 const AddKidModal = lazy(() => import('./components/AddKidModal').then(m => ({ default: m.AddKidModal })));
 const BystanderLostPage = lazy(() => import('./components/BystanderLostPage').then(m => ({ default: m.BystanderLostPage })));
 const VolunteerPoliceDashboard = lazy(() => import('./components/VolunteerPoliceDashboard').then(m => ({ default: m.VolunteerPoliceDashboard })));
@@ -33,7 +32,6 @@ import { offlineKidQueue } from './services/offlineKidQueue';
 import { relayClient } from './services/relayClient';
 import { batteryService } from './services/batteryService';
 import { audioHaptics } from './services/audioHaptics';
-import { ParsedSms, SmsService } from './services/smsService';
 import { bleProximityService } from './services/bleProximityService';
 import { calculateDistance } from './services/navigationMath';
 import { Compass, Users, AlertTriangle, BellOff, Navigation } from 'lucide-react';
@@ -82,7 +80,6 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [serverSettingsOpen, setServerSettingsOpen] = useState(false);
   const [distressConfirmOpen, setDistressConfirmOpen] = useState(false);
-  const [smsHubOpen, setSmsHubOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [helpModalMode, setHelpModalMode] = useState<'help' | 'about'>('help');
   const [showRadar, setShowRadar] = useState(false);
@@ -460,61 +457,6 @@ export default function App() {
     };
   }, [useRealGps]);
 
-  // Helper to send coordinates to paired members via SMS when offline
-  const sendSmsToPairedMembers = async (isDistress: boolean) => {
-    if (!Capacitor.isNativePlatform()) {
-      console.log('[SMS Mock] Web platform - simulating sending coordinates. Distress:', isDistress);
-      return;
-    }
-
-    const payload = isDistress
-      ? SmsService.encodeDistressMessage(myDeviceId, myLocation.latitude, myLocation.longitude, myDeviceName)
-      : SmsService.encodeLocationMessage(myDeviceId, myLocation.latitude, myLocation.longitude, myDeviceName);
-
-    for (const member of pairedMembers) {
-      if (member.phone && member.phone.trim()) {
-        try {
-          await NativeSync.sendSMS({
-            phoneNumber: member.phone,
-            message: payload,
-          });
-          console.log(`[SMS] Coordinates automatically sent to ${member.name} (${member.phone})`);
-        } catch (err) {
-          console.error(`[SMS] Failed to send coordinates to ${member.name}:`, err);
-        }
-      }
-    }
-  };
-
-  // Listen for native SMS coordinates
-  useEffect(() => {
-    let sub: { remove: () => void } | null = null;
-    
-    const setupSmsListener = async () => {
-      if (Capacitor.isNativePlatform()) {
-        try {
-          sub = await NativeSync.addListener('smsReceived', (data: { from: string; body: string }) => {
-            console.log('[SMS] Native SMS received:', data);
-            const parsed = SmsService.parseSmsPayload(data.body);
-            if (parsed) {
-              handleReceiveParsedSms(parsed);
-            }
-          });
-        } catch (err) {
-          console.warn('[NativeSync] failed to register smsReceived listener:', err);
-        }
-      }
-    };
-
-    setupSmsListener();
-
-    return () => {
-      if (sub) {
-        sub.remove();
-      }
-    };
-  }, []);
-
   // Broadcast state ref to prevent interval recreation starvation on compass rotation
   const broadcastStateRef = useRef({
     myLocation,
@@ -540,7 +482,7 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(async () => {
       const state = broadcastStateRef.current;
-      const res = await relayClient.pushLocation(
+      await relayClient.pushLocation(
         state.myLocation.latitude,
         state.myLocation.longitude,
         3.0,
@@ -549,11 +491,6 @@ export default function App() {
         state.myBattery,
         state.myColor
       );
-
-      // If offline mode is enabled, or network push failed, trigger SMS fallback
-      if (state.isOffline || (res && !res.success)) {
-        sendSmsToPairedMembers(false);
-      }
     }, 1500);
     return () => clearInterval(interval);
   }, []);
@@ -654,10 +591,7 @@ export default function App() {
 
   const handleTriggerDistressAlert = async () => {
     audioHaptics.startDistressSiren();
-    const res = await relayClient.sendDistressAlert(myLocation.latitude, myLocation.longitude, myDeviceName);
-    if (isOffline || (res && res.fallbackToSmsRecommended)) {
-      sendSmsToPairedMembers(true);
-    }
+    await relayClient.sendDistressAlert(myLocation.latitude, myLocation.longitude, myDeviceName);
   };
 
   const handleToggleOffline = () => {
@@ -679,49 +613,6 @@ export default function App() {
       latitude: prev.latitude + deltaLat,
       longitude: prev.longitude + deltaLng,
     }));
-  };
-
-  const handleReceiveParsedSms = (sms: ParsedSms) => {
-    if (sms.isDistress) {
-      audioHaptics.startGroupDistressAlert();
-      setIncomingDistress({
-        senderId: sms.deviceId,
-        senderName: sms.name,
-        latitude: sms.latitude,
-        longitude: sms.longitude,
-        timestamp: sms.timestamp,
-      });
-    }
-
-    setPairedMembers((prev) => {
-      const exists = prev.some((m) => m.id === sms.deviceId);
-      if (exists) {
-        return prev.map((m) =>
-          m.id === sms.deviceId
-            ? {
-                ...m,
-                lastLat: sms.latitude,
-                lastLng: sms.longitude,
-                lastUpdated: sms.timestamp,
-                source: 'sms',
-              }
-            : m
-        );
-      }
-      return [
-        ...prev,
-        {
-          id: sms.deviceId,
-          name: sms.name,
-          phone: '+919876543210',
-          lastLat: sms.latitude,
-          lastLng: sms.longitude,
-          lastUpdated: sms.timestamp,
-          source: 'sms',
-          color: sms.isDistress ? '#DC2626' : '#F59E0B',
-        },
-      ];
-    });
   };
 
   // Determine Screen Title for Top Bar
@@ -972,7 +863,6 @@ export default function App() {
                   }}
                   onOpenRooms={() => setRoomsOpen(true)}
                   onOpenServerSettings={() => setServerSettingsOpen(true)}
-                  onOpenSmsHub={() => setSmsHubOpen(true)}
                   onOpenHelp={() => {
                     setHelpModalMode('help');
                     setHelpModalOpen(true);
@@ -1089,20 +979,6 @@ export default function App() {
             isOpen={distressConfirmOpen}
             onClose={() => setDistressConfirmOpen(false)}
             onConfirm={handleTriggerDistressAlert}
-          />
-        </Suspense>
-      )}
-
-      {/* SMS Hub Modal */}
-      {smsHubOpen && (
-        <Suspense fallback={null}>
-          <SmsHubModal
-            isOpen={smsHubOpen}
-            myDeviceId={myDeviceId}
-            myDeviceName={myDeviceName}
-            myLocation={myLocation}
-            onClose={() => setSmsHubOpen(false)}
-            onApplyParsedSms={handleReceiveParsedSms}
           />
         </Suspense>
       )}

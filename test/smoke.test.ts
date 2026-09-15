@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { spawn, ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { calculateDistance, calculateBearing, calculateArrowAngle, getRelativeDirectionAdvice } from '../src/services/navigationMath';
-import { SmsService } from '../src/services/smsService';
 import { io as ioClient } from 'socket.io-client';
 
 describe('Navigation Math Service', () => {
@@ -54,43 +53,6 @@ describe('Navigation Math Service', () => {
     assert.ok(getRelativeDirectionAdvice(90, 'en').includes('Right'));
     assert.ok(getRelativeDirectionAdvice(180, 'en').includes('Behind') || getRelativeDirectionAdvice(180, 'en').includes('Turn Around'));
     assert.ok(getRelativeDirectionAdvice(270, 'en').includes('Left'));
-  });
-});
-
-describe('SMS Fallback Service', () => {
-  it('encodes and parses location message roundtrip', () => {
-    const encoded = SmsService.encodeLocationMessage('dev_123', 25.4358, 81.8463, 'Papa');
-    const parsed = SmsService.parseSmsPayload(encoded);
-
-    assert.ok(parsed !== null);
-    assert.equal(parsed.deviceId, 'dev_123');
-    assert.equal(parsed.name, 'Papa');
-    assert.equal(parsed.isDistress, false);
-    assert.equal(parsed.source, 'sms');
-    assert.ok(Math.abs(parsed.latitude - 25.4358) < 0.0001);
-    assert.ok(Math.abs(parsed.longitude - 81.8463) < 0.0001);
-  });
-
-  it('encodes and parses distress alert message roundtrip', () => {
-    const encoded = SmsService.encodeDistressMessage('dev_456', 25.4358, 81.8463, 'Dadi');
-    const parsed = SmsService.parseSmsPayload(encoded);
-
-    assert.ok(parsed !== null);
-    assert.equal(parsed.deviceId, 'dev_456');
-    assert.equal(parsed.name, 'Dadi');
-    assert.equal(parsed.isDistress, true);
-    assert.equal(parsed.source, 'sms');
-  });
-
-  it('returns null for invalid or corrupted SMS', () => {
-    assert.equal(SmsService.parseSmsPayload(''), null);
-    assert.equal(SmsService.parseSmsPayload('Hello there!'), null);
-    assert.equal(SmsService.parseSmsPayload('FMF_LOC:dev_123|not_a_number|81.8463'), null);
-  });
-
-  it('generates sanitized SMS URI', () => {
-    const uri = SmsService.getSmsUri('+91 98765-43210', 'Test message');
-    assert.equal(uri, 'sms:+919876543210?body=Test%20message');
   });
 });
 

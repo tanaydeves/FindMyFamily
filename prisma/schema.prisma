@@ -71,7 +71,6 @@ model lost_alerts {
   finder_lng               Float?
   finder_landmark_note     String?
   finder_contact_optional  String?
-  sms_sent_at              DateTime?
   dashboard_alerted_at     DateTime?
   status                   AlertStatus  @default(open)
   resolved_by_user_id      String?

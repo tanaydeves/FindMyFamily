@@ -222,7 +222,7 @@ export const AddKidModal: React.FC<Props> = ({
                   </div>
                   {isAssistedKiosk && (
                     <p className="text-[11px] text-[#D97706] mt-2 font-medium">
-                      ⚠️ Note: Child profile will be tagged with volunteer service account while SMS alerts go to parent's phone.
+                      ⚠️ Note: Child profile will be tagged with volunteer kiosk service account.
                     </p>
                   )}
                 </div>
@@ -328,7 +328,7 @@ export const AddKidModal: React.FC<Props> = ({
                     className="w-full bg-[#F8FAF9] border border-[#E2E8F0] focus:border-[#1B4332] focus:bg-white rounded-xl px-3 py-2 text-sm text-[#0D2119] outline-none font-mono transition-colors"
                   />
                   <p className="text-[11px] text-[#5C7168] mt-1">
-                    SMS alerts will be sent immediately to this number if the QR sticker is scanned by a finder.
+                    Alerts will be sent immediately if the QR sticker is scanned by a finder.
                   </p>
                 </div>
 
@@ -345,7 +345,7 @@ export const AddKidModal: React.FC<Props> = ({
                   />
                 </div>
 
-                {/* Preferred Language for SMS */}
+                {/* Preferred Language for Alerts */}
                 <div>
                   <label className="text-xs font-bold text-[#0D2119] block mb-1.5 flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-[#1B4332]" />
@@ -434,7 +434,7 @@ export const AddKidModal: React.FC<Props> = ({
 
                 <div className="text-xs text-[#5C7168] space-y-1 text-left bg-white p-3 rounded-xl border border-[#E2E8F0]">
                   <p><strong>Parents:</strong> {linkedProfile.mother_name} & {linkedProfile.father_name}</p>
-                  <p><strong>Primary SMS Contact:</strong> <span className="font-mono">{linkedProfile.contact_number_primary}</span></p>
+                  <p><strong>Primary Contact:</strong> <span className="font-mono">{linkedProfile.contact_number_primary}</span></p>
                   {linkedProfile.contact_number_secondary && (
                     <p><strong>Backup Contact:</strong> <span className="font-mono">{linkedProfile.contact_number_secondary}</span></p>
                   )}

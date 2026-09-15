@@ -178,10 +178,10 @@ export const BystanderLostPage: React.FC<Props> = ({ qrId, onNavigateHome }) => 
                 <span>Actions Taken:</span>
               </div>
               <p className="text-[#5C7168]">
-                ✓ High-priority SMS sent to child's parents with location link.
+                ✓ Urgent rescue alert broadcasted to Volunteer & Police on-ground dashboard.
               </p>
               <p className="text-[#5C7168]">
-                ✓ Rescue alert broadcasted to Volunteer & Police on-ground dashboard.
+                ✓ On-ground rescue team dispatched to coordinates.
               </p>
             </div>
 

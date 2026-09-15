@@ -79,8 +79,8 @@ export const HomeScreen: React.FC<Props> = ({
           <div className="flex items-center gap-2">
             {isOffline ? (
               <>
-                <MessageSquare className="w-4 h-4 text-[#D97706]" />
-                <span>Using SMS Fallback (Offline)</span>
+                <WifiOff className="w-4 h-4 text-[#D97706]" />
+                <span>Offline Data Mesh (Sensors Active)</span>
               </>
             ) : (
               <>
@@ -320,11 +320,6 @@ export const HomeScreen: React.FC<Props> = ({
                           <span className="label-sm text-[#DC2626] font-semibold flex items-center gap-1">
                             <WifiOff className="w-3.5 h-3.5" />
                             <span>Disconnected</span>
-                          </span>
-                        ) : member.source === 'sms' ? (
-                          <span className="label-sm text-[#D97706] font-semibold flex items-center gap-1">
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>SMS Fallback</span>
                           </span>
                         ) : member.source === 'ble' ? (
                           <span className="label-sm text-[#006D36] font-semibold flex items-center gap-1">

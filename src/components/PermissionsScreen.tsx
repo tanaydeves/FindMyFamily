@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bluetooth, MapPin, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Bluetooth, MapPin, ArrowLeft } from 'lucide-react';
 import { motion } from 'motion/react';
 import { LanguageCode } from '../types';
 import { Capacitor } from '@capacitor/core';
@@ -14,7 +14,6 @@ interface Props {
 export const PermissionsScreen: React.FC<Props> = ({ onGranted, onBack }) => {
   const [grantedBle, setGrantedBle] = useState(true);
   const [grantedLoc, setGrantedLoc] = useState(true);
-  const [grantedSms, setGrantedSms] = useState(true);
 
   const handleContinue = async () => {
     // Geolocation trigger if supported
@@ -36,15 +35,6 @@ export const PermissionsScreen: React.FC<Props> = ({ onGranted, onBack }) => {
         await NativeSync.requestBluetoothPermissions();
       } catch (err) {
         console.warn('[NativeSync] Bluetooth permission error:', err);
-      }
-    }
-
-    // SMS permission request if native and requested
-    if (grantedSms && Capacitor.isNativePlatform()) {
-      try {
-        await NativeSync.requestSmsPermissions();
-      } catch (err) {
-        console.warn('[NativeSync] SMS permission error:', err);
       }
     }
 
@@ -74,7 +64,7 @@ export const PermissionsScreen: React.FC<Props> = ({ onGranted, onBack }) => {
       <div className="flex-1 overflow-y-auto px-6 pt-6 pb-4">
         <h1 className="headline-lg text-[#0D2119] mb-2">Enable Features</h1>
         <p className="body-md text-[#5C7168] mb-6">
-          Find My Family works offline and in crowded areas by using local device sensors and SMS fallback.
+          Find My Family works offline and in crowded areas by using local Bluetooth beacons and GPS sensors.
         </p>
 
         <div className="space-y-3.5">
@@ -135,37 +125,6 @@ export const PermissionsScreen: React.FC<Props> = ({ onGranted, onBack }) => {
               <div
                 className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${
                   grantedLoc ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </div>
-          </motion.div>
-
-          {/* Card 3: SMS Fallback */}
-          <motion.div
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            onClick={() => setGrantedSms(!grantedSms)}
-            className="p-4 rounded-xl bg-[#FFFFFF] border border-[#E2E8F0] flex items-center justify-between gap-4 cursor-pointer hover:border-[#CBD5E1] transition-all shadow-xs"
-          >
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-12 h-12 rounded-full bg-[#F1F5F3] flex items-center justify-center text-[#1B4332] shrink-0">
-                <MessageSquare className="w-6 h-6" />
-              </div>
-              <div className="min-w-0">
-                <div className="body-lg font-bold text-[#0D2119]">SMS Fallback</div>
-                <div className="body-md text-sm text-[#5C7168]">Transmits coordinates when offline</div>
-              </div>
-            </div>
-
-            <div
-              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 p-0.5 ${
-                grantedSms ? 'bg-[#1B4332]' : 'bg-[#CBD5E1]'
-              }`}
-            >
-              <div
-                className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${
-                  grantedSms ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </div>

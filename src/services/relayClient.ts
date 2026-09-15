@@ -279,7 +279,7 @@ class RelayClient {
     latitude: number,
     longitude: number,
     name = ''
-  ): Promise<{ success: boolean; fallbackToSmsRecommended?: boolean; alert?: DistressAlert }> {
+  ): Promise<{ success: boolean; alert?: DistressAlert }> {
     const payload = {
       deviceId: this.myDeviceId,
       circleId: this.myCircleId,
@@ -293,7 +293,7 @@ class RelayClient {
     }
 
     if (this.isOfflineSimulated) {
-      return { success: false, fallbackToSmsRecommended: true };
+      return { success: false };
     }
 
     try {
@@ -305,7 +305,7 @@ class RelayClient {
       });
       return await res.json();
     } catch {
-      return { success: false, fallbackToSmsRecommended: true };
+      return { success: false };
     }
   }
 

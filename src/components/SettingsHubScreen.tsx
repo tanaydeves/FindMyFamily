@@ -23,7 +23,6 @@ interface Props {
   onOpenLanguage: () => void;
   onOpenRooms: () => void;
   onOpenServerSettings: () => void;
-  onOpenSmsHub: () => void;
   onOpenHelp: () => void;
   onOpenAbout: () => void;
   onLeaveCircle: () => void;
@@ -37,7 +36,6 @@ export const SettingsHubScreen: React.FC<Props> = ({
   onOpenLanguage,
   onOpenRooms,
   onOpenServerSettings,
-  onOpenSmsHub,
   onOpenHelp,
   onOpenAbout,
   onLeaveCircle,
@@ -117,17 +115,6 @@ export const SettingsHubScreen: React.FC<Props> = ({
               <div className="flex items-center gap-3.5">
                 <Server className="w-5 h-5 text-[#5C7168]" />
                 <span className="body-md font-medium text-[#0D2119]">Connection (Advanced)</span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#5C7168]" />
-            </button>
-
-            <button
-              onClick={onOpenSmsHub}
-              className="w-full min-h-[52px] p-4 flex items-center justify-between hover:bg-[#F8FAF9] active:bg-[#ECEEED] transition-colors cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3.5">
-                <MessageSquare className="w-5 h-5 text-[#5C7168]" />
-                <span className="body-md font-medium text-[#0D2119]">SMS Hub / Fallback</span>
               </div>
               <ChevronRight className="w-4 h-4 text-[#5C7168]" />
             </button>

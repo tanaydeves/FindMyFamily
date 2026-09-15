@@ -239,7 +239,7 @@ export const NavDrawer: React.FC<Props> = ({
                         />
                       </div>
                       <div className="text-[11px] text-[#5C7168] mt-0.5">
-                        {isOffline ? 'Offline / SMS Mode' : 'Online data mesh synchronization'}
+                        {isOffline ? 'Offline Data Mesh Mode' : 'Online data mesh synchronization'}
                       </div>
                     </div>
                     <button
@@ -268,7 +268,7 @@ export const NavDrawer: React.FC<Props> = ({
                     <div>
                       <div className="text-xs font-bold text-[#0D2119]">Connection Status</div>
                       <div className="text-[11px] text-[#5C7168]">
-                        {isOffline ? 'Offline • SMS Fallback Ready' : 'Good signal • Relay connected'}
+                        {isOffline ? 'Offline • BLE Mesh Active' : 'Good signal • Relay connected'}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 text-[#1B4332] text-xs font-semibold">

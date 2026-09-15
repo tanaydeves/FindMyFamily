@@ -7,7 +7,6 @@ export type ScreenType =
   | 'home'
   | 'arrow'
   | 'radar'
-  | 'sms_hub'
   | 'sandbox';
 
 export interface LocationData {
@@ -21,7 +20,7 @@ export interface LocationData {
   heading?: number;
   battery?: number;
   color?: string;
-  source?: 'relay' | 'sms' | 'gps' | 'ble';
+  source?: 'relay' | 'gps' | 'ble';
 }
 
 export interface FamilyMember {
@@ -33,7 +32,7 @@ export interface FamilyMember {
   lastLng: number;
   accuracy?: number;
   lastUpdated: number;
-  source?: 'relay' | 'sms' | 'gps' | 'ble';
+  source?: 'relay' | 'gps' | 'ble';
   color?: string;
   battery?: number;
   rssi?: number;
@@ -104,7 +103,6 @@ export interface LostAlert {
   finder_lng?: number | null;
   finder_landmark_note?: string | null;
   finder_contact_optional?: string | null;
-  sms_sent_at?: string | null;
   dashboard_alerted_at?: string | null;
   status: AlertStatus;
   resolved_by_user_id?: string | null;

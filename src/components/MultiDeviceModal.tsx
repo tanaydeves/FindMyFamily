@@ -452,7 +452,7 @@ export const MultiDeviceModal: React.FC<Props> = ({
 
               <div>
                 <label className="text-xs font-bold text-[#B7E4C7] uppercase tracking-wider block mb-1.5">
-                  Phone Number (For SMS Fallback)
+                  Phone Number (Emergency Contact)
                 </label>
                 <input
                   type="tel"

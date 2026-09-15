@@ -438,17 +438,17 @@ async function startServer() {
       const alert = result.alert;
       const child = await dbRepository.getChildByQrId(qr_id);
 
-      // 1. Send simulated SMS to child's parent contacts
+      // 1. Log alert dispatch to parent contacts
       const primaryContact = child?.contact_number_primary || 'Parent';
       const childName = child?.child_name || 'your child';
       const landmarkText = finder_landmark_note || 'the event grounds';
-      const smsMessage = `Find My Family Alert: A person has reported finding ${childName} near ${landmarkText}. Please head there or contact the nearest volunteer center.`;
+      const alertMsg = `Find My Family Rescue Alert: ${childName} reported near ${landmarkText}. Volunteer desk notified.`;
 
-      console.log(`\n================== [URGENT SMS DISPATCH] ==================`);
-      console.log(`TO: ${primaryContact}${child?.contact_number_secondary ? `, ${child.contact_number_secondary}` : ''}`);
-      console.log(`MESSAGE: "${smsMessage}"`);
+      console.log(`\n================== [RESCUE ALERT DISPATCH] ==================`);
+      console.log(`PRIMARY CONTACT: ${primaryContact}${child?.contact_number_secondary ? `, ${child.contact_number_secondary}` : ''}`);
+      console.log(`MESSAGE: "${alertMsg}"`);
       console.log(`TIMESTAMP: ${new Date().toISOString()}`);
-      console.log(`===========================================================\n`);
+      console.log(`=============================================================\n`);
 
       // 2. Broadcast real-time alert onto Volunteer / Police Dashboard
       io.emit('lost_alert_created', alert);
@@ -456,7 +456,7 @@ async function startServer() {
       return res.json({
         success: true,
         alert,
-        sms_dispatched_to: primaryContact,
+        alert_dispatched_to: primaryContact,
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Error processing lost report.' });

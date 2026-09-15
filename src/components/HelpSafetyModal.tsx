@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ShieldCheck, Compass, MessageSquare, AlertTriangle, Users } from 'lucide-react';
+import { X, ShieldCheck, Compass, Radio, AlertTriangle, Users } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -63,7 +63,7 @@ export const HelpSafetyModal: React.FC<Props> = ({
                 Built specifically for dense gatherings, pilgrimages, and emergency mesh communication where cellular internet towers get congested.
               </p>
               <p>
-                Features peer-to-peer relative directional pointing, offline SMS fallback coordinate transmission, and instant multi-device family circle tracking.
+                Features peer-to-peer relative directional pointing, Bluetooth Low Energy proximity scanning, and instant multi-device family circle tracking.
               </p>
             </div>
           </div>
@@ -82,13 +82,13 @@ export const HelpSafetyModal: React.FC<Props> = ({
             </div>
 
             <div className="p-4 rounded-xl bg-[#F8FAF9] border border-[#E2E8F0] flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-lg bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center shrink-0">
-                <MessageSquare className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-lg bg-[#10B981]/10 text-[#10B981] flex items-center justify-center shrink-0">
+                <Radio className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-sm text-[#0D2119]">Zero-Internet SMS Fallback</h4>
+                <h4 className="font-bold text-sm text-[#0D2119]">BLE Proximity Fusion</h4>
                 <p className="body-md text-xs text-[#5C7168] mt-0.5 leading-relaxed">
-                  When mobile internet drops in heavy crowds, the app automatically switches to compact 50-byte encrypted SMS coordinates.
+                  When getting close (&le;30m), Bluetooth Low Energy automatically activates to pinpoint exact proximity without relying on cell towers.
                 </p>
               </div>
             </div>

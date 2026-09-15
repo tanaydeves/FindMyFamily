@@ -57,7 +57,7 @@ export const DevicePerspectiveBar: React.FC<Props> = ({
                 ? 'bg-[#4ADE80] animate-pulse'
                 : 'bg-red-400 animate-ping'
             }`}
-            title={isOffline ? 'Offline / SMS Mode' : isServerConnected ? 'Connected to Hub' : 'Connecting to Server...'}
+            title={isOffline ? 'Offline Data Mesh Mode' : isServerConnected ? 'Connected to Hub' : 'Connecting to Server...'}
           />
         </button>
 
@@ -111,10 +111,10 @@ export const DevicePerspectiveBar: React.FC<Props> = ({
               ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40 shadow-[0_0_10px_rgba(234,179,8,0.2)]'
               : 'bg-[#132A22] text-[#95D5B2] hover:text-white border-[#2D6A4F]'
           }`}
-          title={isOffline ? 'Switch back to online relay mode' : 'Simulate mobile data outage / SMS mode'}
+          title={isOffline ? 'Switch back to online relay mode' : 'Simulate mobile data outage / offline mesh mode'}
         >
           {isOffline ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5 text-[#4ADE80]" />}
-          <span>{isOffline ? 'SMS Only' : 'Relay'}</span>
+          <span>{isOffline ? 'Offline' : 'Relay'}</span>
         </button>
 
         {/* Language selector */}

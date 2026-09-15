@@ -7,7 +7,7 @@ import {
   Volume2,
   VolumeX,
   Phone,
-  MessageSquare,
+  WifiOff,
   Footprints,
   RotateCw,
   Navigation,
@@ -23,7 +23,6 @@ import {
   getRelativeDirectionAdvice,
 } from '../services/navigationMath';
 import { audioHaptics } from '../services/audioHaptics';
-import { SmsService } from '../services/smsService';
 
 interface Props {
   member: FamilyMember;
@@ -215,10 +214,10 @@ export const ArrowScreen: React.FC<Props> = ({
       {isOffline && (
         <div className="bg-[#FEF3C7] text-[#92400E] border-b border-[#FDE68A] px-4 py-2 text-xs font-semibold flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-[#D97706]" />
-            <span>Using SMS Fallback (Offline)</span>
+            <WifiOff className="w-4 h-4 text-[#D97706]" />
+            <span>Offline Data Mesh (Sensors Active)</span>
           </div>
-          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#FDE68A]">SMS SYNC</span>
+          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#FDE68A]">OFFLINE</span>
         </div>
       )}
 
