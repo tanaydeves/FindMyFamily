@@ -52,7 +52,7 @@ export const AddKidModal: React.FC<Props> = ({
   // Mode: Personal Phone vs Assisted Volunteer Kiosk Registration
   // TODO [DECISION 2 - ASSISTED REGISTRATION AUTH]: If existing auth scaffolding supports a distinct volunteer role,
   // implement this properly by tagging created_by_user_id with the volunteer's service account. Currently stubbed
-  // with service_kiosk_volunteer while still using parent contact numbers for SMS delivery.
+  // with service_kiosk_volunteer while storing parent contact numbers for emergency verification.
   const [isAssistedKiosk, setIsAssistedKiosk] = useState(false);
 
   // Scanned QR and Server Response

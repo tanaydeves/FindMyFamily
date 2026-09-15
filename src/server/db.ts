@@ -307,15 +307,24 @@ class DatabaseRepository {
 
     if (this.isPrismaReady) {
       try {
-        await this.prismaClient.$transaction([
-          this.prismaClient.qr_tags.update({
-            where: { qr_id: params.qr_id },
+        await this.prismaClient.$transaction(async (tx: any) => {
+          // Atomic conditional update: only update if status is currently 'unassigned'
+          const updateResult = await tx.qr_tags.updateMany({
+            where: {
+              qr_id: params.qr_id,
+              status: 'unassigned',
+            },
             data: {
               status: 'assigned',
               assigned_at: new Date(),
             },
-          }),
-          this.prismaClient.child_profiles.upsert({
+          });
+
+          if (updateResult.count === 0) {
+            throw new Error('QR_ALREADY_IN_USE');
+          }
+
+          await tx.child_profiles.upsert({
             where: { qr_id: params.qr_id },
             create: {
               child_id: newChild.child_id,
@@ -338,10 +347,16 @@ class DatabaseRepository {
               contact_number_secondary: newChild.contact_number_secondary,
               language_pref: newChild.language_pref,
             },
-          }),
-        ]);
+          });
+        });
         console.log('[DB REPOSITORY] Successfully saved child profile to Supabase database!');
       } catch (err: any) {
+        if (err.message === 'QR_ALREADY_IN_USE') {
+          return {
+            success: false,
+            error: 'This QR is already in use. Please request a new sticker from the volunteer desk.',
+          };
+        }
         console.error('[DB REPOSITORY] Prisma link error:', err.message || err);
         return {
           success: false,
@@ -426,7 +441,7 @@ class DatabaseRepository {
     if (tag.status === 'lost_flagged') {
       return {
         success: false,
-        error: 'An active lost alert is already in progress for this child. Rescue teams have already been dispatched.',
+        error: 'An active lost alert is already in progress for this child. Volunteer desks have already been notified.',
       };
     }
 

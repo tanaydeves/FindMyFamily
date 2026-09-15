@@ -181,7 +181,7 @@ export const BystanderLostPage: React.FC<Props> = ({ qrId, onNavigateHome }) => 
                 ✓ Urgent rescue alert broadcasted to Volunteer & Police on-ground dashboard.
               </p>
               <p className="text-[#5C7168]">
-                ✓ On-ground rescue team dispatched to coordinates.
+                ✓ Incident details shared with nearby volunteer rescue posts.
               </p>
             </div>
 
@@ -330,7 +330,7 @@ export const BystanderLostPage: React.FC<Props> = ({ qrId, onNavigateHome }) => 
                 {t('bystanderPrompt', lang)}
               </h2>
               <p className="text-xs text-[#5C7168] mt-1 max-w-xs mx-auto">
-                Tapping "Mark as Lost" will instantly alert parents via SMS and dispatch event rescue volunteers to this location.
+                Tapping "Mark as Lost" will instantly alert nearby volunteer centers and police desks to this location.
               </p>
             </div>
 
@@ -460,7 +460,7 @@ export const BystanderLostPage: React.FC<Props> = ({ qrId, onNavigateHome }) => 
                     ) : (
                       <>
                         <AlertTriangle className="w-4 h-4" />
-                        <span>Send Emergency Alert to Parents & Police</span>
+                        <span>Send Emergency Alert to Volunteers & Police</span>
                       </>
                     )}
                   </button>
